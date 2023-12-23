@@ -1,0 +1,224 @@
+###########################
+# MS-C1620
+# Statistical inference
+# Lecture 11
+
+library(MASS)
+library(KernSmooth)
+
+##############################################################
+# Kernel smoothing
+
+# Motorcycle data
+x <- mcycle$times
+y <- mcycle$accel
+plot(x,y)
+
+# Linear regression model does not seem very good
+linmodel <- lm(y ~ x)
+linmodel
+abline(linmodel)
+
+# Difficult to claim that a parametric model would be good.
+# Try nonparametric ones.
+
+# Nadaraya-Watson = simple weighted average of nearby points
+kernelmodel5 <- ksmooth(x, y, kernel="normal", bandwidth=5)
+lines(kernelmodel5, col="red")
+
+# Try different bandwidths
+kernelmodel20 <- ksmooth(x, y, kernel="normal", bandwidth=20)
+lines(kernelmodel20, col="blue")
+
+kernelmodel200 <- ksmooth(x, y, kernel="normal", bandwidth=200)
+lines(kernelmodel200, col="cyan")
+
+kernelmodel1 <- ksmooth(x, y, kernel="normal", bandwidth=1)
+lines(kernelmodel1, col="magenta")
+
+kernelmodel02 <- ksmooth(x, y, kernel="normal", bandwidth=0.2)
+lines(kernelmodel02, col="black")
+
+
+# Use cross validation to select bandwidth
+# that predicts unseen points with smallest error.
+
+# Split data randomly (half and half) to training and test.
+set.seed(12345)
+n <- length(x)
+training <- sort(sample(seq_len(n), size=round(n/2)))
+
+# We try several bandwidths between 1 and 15.
+# This creates many plots (use the <- -> arrows in the plot window to browse).
+nh <- 100
+h_vals <- exp(seq(log(1), log(15), length=nh))
+mse_vals <- rep(0, nh)
+for (i in 1:nh){
+  h <- h_vals[i]
+  ytestpred <- ksmooth(x[training], y[training], kernel="normal", bandwidth=h, x.points=c(x[-training]))$y
+  # Calculate the MSE (mean squared error)
+  mse <- mean((y[-training] - ytestpred)^2)
+  mse_vals[i] <- mse
+  
+  # Demonstrate what happens with this bandwidth
+  plot(x[training],y[training],col="black", main=paste("h=",round(h,digits=3),"MSE=",round(mse,digits=2)))
+  lines(x[-training],ytestpred,col="black")
+  points(x[-training],y[-training],col="blue")
+  segments(x[-training], y[-training], x[-training], ytestpred, col="red")
+}
+
+# Showing how bandwidth affects MSE on test set.
+plot(h_vals, mse_vals)
+
+# Select bandwidth that minimizes MSE
+imin = which.min(mse_vals)
+h <- h_vals[imin]
+h
+
+# Demonstrate what happens with this bandwidth
+ytestpred <- ksmooth(x[training], y[training], kernel="normal", bandwidth=h, x.points=c(x[-training]))$y
+plot(x[training],y[training],col="black", main=paste("h=",round(h,digits=3),"MSE=",round(mse_vals[imin],digits=3)))
+lines(x[-training],ytestpred,col="black")
+points(x[-training],y[-training],col="blue")
+segments(x[-training], y[-training], x[-training], ytestpred, col="red")
+
+# Look at the plot critically.
+# We selected a "globally best" bandwidth.
+# Does it seem too narrow in the rightmost portion of the data?
+# Perhaps we could use an adaptive bandwidth (but we are not doing it now).
+
+
+# Another data: Old Faithful waiting times, predicted from eruption length
+F <- faithful[order(faithful$eruptions),]
+x <- F$eruptions
+y <- F$waiting
+n <- length(x)
+plot(x, y)
+model <- ksmooth(x, y, kernel="normal", bandwidth=0.1)
+lines(model$x, model$y)
+# Seems too jumpy?
+
+# Split data randomly (half and half) to training and test.
+set.seed(12345)
+n <- length(x)
+training <- sort(sample(seq_len(n), size=round(n/2)))
+
+# We try several bandwidths between 0.1 and 5.
+# This creates many plots (use the <- -> arrows in the plot window to browse).
+nh <- 50
+h_vals <- exp(seq(log(0.1), log(5), length=nh))
+mse_vals <- rep(0, nh)
+for (i in 1:nh){
+  h <- h_vals[i]
+  ytestpred <- ksmooth(x[training], y[training], kernel="normal", bandwidth=h, x.points=c(x[-training]))$y
+  # Calculate the MSE (mean squared error)
+  mse <- mean((y[-training] - ytestpred)^2)
+  mse_vals[i] <- mse
+  
+  # Demonstrate what happens with this bandwidth
+  plot(x[training],y[training],col="black", main=paste("h=",round(h,digits=3),"MSE=",round(mse,digits=2)))
+  lines(x[-training],ytestpred,col="black")
+  points(x[-training],y[-training],col="blue")
+  segments(x[-training], y[-training], x[-training], ytestpred, col="red")
+}
+
+# Showing how bandwidth affects MSE on test set.
+plot(h_vals, mse_vals)
+
+# Select bandwidth that minimizes MSE
+imin = which.min(mse_vals)
+h <- h_vals[imin]
+h
+
+# Demonstrate what happens with this bandwidth
+ytestpred <- ksmooth(x[training], y[training], kernel="normal", bandwidth=h, x.points=c(x[-training]))$y
+plot(x[training],y[training],col="black", main=paste("h=",round(h,digits=3)))
+lines(x[-training],ytestpred,col="black")
+points(x[-training],y[-training],col="blue")
+segments(x[-training], y[-training], x[-training], ytestpred, col="red")
+
+
+
+##############################################################
+# Local linear regression
+
+# Again using motorcycle data
+x <- mcycle$times
+y <- mcycle$accel
+plot(x,y)
+loclinmodel5 <- locpoly(x, y, degree=1, bandwidth=5)
+lines(loclinmodel5, col="red")
+# seems too wide smoothing window (bandwidth)
+
+# try smaller bandwidth
+loclinmodel2 <- locpoly(x, y, degree=1, bandwidth=2)
+lines(loclinmodel2, col="magenta")
+
+# Demonstrating edge effects, NW versus local linear
+# Using different data which comes from a sine curve.
+x <- seq(from=0, to=5.5, length.out=20)
+y <- sin(x)
+h <- 0.5
+range <- c(-1, 7)
+plot(x,y, xlim=range)
+
+# Nadaraya-Watson corresponds to zero-degree (constant) local polynomial fit
+nwmodel <- locpoly(x, y, degree=0, bandwidth=h, range.x=range)
+lines(nwmodel, col="blue")
+# Compare to degree-1 (linear) local polynomial fit
+llmodel <- locpoly(x, y, degree=1, bandwidth=h, range.x=range)
+lines(llmodel, col="red")
+# What about degree-2 (quadratic) local polynomial fit?
+lqmodel <- locpoly(x, y, degree=2, bandwidth=h, range.x=range)
+lines(lqmodel, col="green")
+
+# Higher degree polynomial traces the bends better. But how does it handle noise?
+yerr <- y + rnorm(length(x), 0, 0.2)
+plot(x, yerr, xlim=range)
+# Nadaraya-Watson
+nwmodel <- locpoly(x, yerr, degree=0, bandwidth=h, range.x=range)
+lines(nwmodel, col="blue")
+# Degree 1
+llmodel <- locpoly(x, yerr, degree=1, bandwidth=h, range.x=range)
+lines(llmodel, col="red")
+# Degree 2
+lqmodel <- locpoly(x, yerr, degree=2, bandwidth=h, range.x=range)
+lines(lqmodel, col="green")
+
+
+##############################################################
+# Kernel density estimation
+
+# KDE example 1: A very small sample from uniform distribution on [10,20]
+n <- 5
+range <- c(10,20)
+x <- runif(n, 10, 20)
+h <- 0.3
+densitymodel <- bkde(x, bandwidth=h, range.x=range)
+plot(x, rep(0,n), xlim=range, ylim=c(0,max(densitymodel$y)))
+lines(densitymodel)
+# try increasing bandwidth to eg. 1
+# try increasing n to eg. 20 or 300
+
+# KDE example 2: Sample from an exponential distribution
+n <- 200
+x <- rexp(n, rate=5)
+h <- 0.05
+densitymodel <- bkde(x, bandwidth=h)
+plot(x, rep(0,n), ylim=c(0,max(densitymodel$y)))
+lines(densitymodel)
+
+# KDE example 3: Old Faithful eruption lengths (a bimodal distribution)
+x <- faithful$eruptions
+n <- length(x)
+h <- .1
+densitymodel <- bkde(x, bandwidth=h)
+plot(x, rep(0,n), ylim=c(0,max(densitymodel$y)))
+lines(densitymodel)
+
+# try changing bandwidth, eg. values 0.01, 0.1, 1, 3
+
+# Can we use CV here to choose bandwidth?
+# Yes (example coming here later...)
+
+

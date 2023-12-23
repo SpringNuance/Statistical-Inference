@@ -1,0 +1,4 @@
+feedback for exercise 4:
+1b
+The researcher conclusion is defective because sign rank test assume the data to be i.i.d. The time series is always increasing and thus the data points are dependent
+=> sign rank test is wrong

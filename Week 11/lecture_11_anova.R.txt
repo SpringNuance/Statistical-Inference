@@ -1,0 +1,467 @@
+###########################
+# MS-C1620
+# Statistical inference
+# Lecture 11
+
+
+library(ggplot2)
+
+# We use the significance level 0.05 throughout the script
+
+
+
+########################################
+# Analysis problems to solve with ANOVA 
+
+
+# Chicken weights under different types of feed
+?chickwts
+head(chickwts)
+boxplot(weight ~ feed, data = chickwts)
+
+
+# Plant yield under different conditions
+?PlantGrowth
+head(PlantGrowth)
+boxplot(weight ~ group, data = PlantGrowth)
+
+
+# Insect spray effectiveness
+?InsectSprays
+head(InsectSprays)
+boxplot(count ~ spray, data = InsectSprays)
+
+
+
+
+
+########################################
+# Variation between groups vs. within groups
+
+
+##### Typical case of large SSG (between-group variance) and small SSE (within-group variance)
+# == The group expected values are different
+n <- 50
+set.seed(12345)    # for same results on every run
+x <- rnorm(n, -5, 1)
+y <- rnorm(n, 0, 1)
+z <- rnorm(n, 5, 1)
+boxplot(x, y, z)
+
+# SSG
+gm <- mean(c(x, y, z))
+ssg <- n*(mean(x) - gm)^2 + n*(mean(y) - gm)^2 + n*(mean(z) - gm)^2
+gm
+
+# SSE
+sse <- sum((x - mean(x))^2) + sum((y - mean(y))^2) + sum((z - mean(z))^2)
+
+ssg
+sse
+ssg/sse
+
+
+
+
+##### Typical case of small SSG (between-group variance) and large SSE (within-group variance)
+# == The group expected values are the same
+n <- 50
+set.seed(12345)    # for same results on every run
+x <- rnorm(n, 0, 1)
+y <- rnorm(n, 0, 1)
+z <- rnorm(n, 0, 1)
+boxplot(x, y, z)
+
+# SSG
+gm <- mean(c(x, y, z))
+ssg <- n*(mean(x) - gm)^2 + n*(mean(y) - gm)^2 + n*(mean(z) - gm)^2
+gm
+
+# SSE
+sse <- sum((x - mean(x))^2) + sum((y - mean(y))^2) + sum((z - mean(z))^2)
+
+ssg
+sse
+ssg/sse
+
+
+##### Borderline case
+n <- 50
+set.seed(12345)    # for same results on every run
+x <- rnorm(n, 0, 1)
+y <- rnorm(n, 1, 1)
+z <- rnorm(n, -1, 1)
+boxplot(x, y, z)
+
+# SSG
+gm <- mean(c(x, y, z))
+ssg <- n*(mean(x) - gm)^2 + n*(mean(y) - gm)^2 + n*(mean(z) - gm)^2
+
+# SSE
+sse <- sum((x - mean(x))^2) + sum((y - mean(y))^2) + sum((z - mean(z))^2)
+
+ssg
+sse
+ssg/sse
+
+# Is SSG/SSE "large enough" for us to conclude that it is not plausible
+# that the groups have equal expected values
+# -> this is what ANOVA will tell us.
+
+
+
+
+
+######################################
+# ANOVA on the data sets
+
+
+##### Chicken weights
+chicken_aov <- aov(weight ~ feed, data = chickwts)
+
+chicken_aov
+# Now, SSG = 231129.2 and SSE = 195556.0
+
+summary(chicken_aov)
+# F-statistic value = 15.37 and p-value = 6e-10 for
+# H0: the expected values of the groups are the same
+
+# We conclude that not all feeds are equally effective in increasing the chickens' weights
+
+
+
+
+##### Plant growth
+plant_aov <- aov(weight ~ group, data = PlantGrowth)
+
+plant_aov
+summary(plant_aov)
+# p-value = 0.0159 < 0.05 => reject H0
+
+# We conclude that not all three conditions are equally effective in increasing plant yield
+
+
+
+
+##### Insect sprays
+insect_aov <- aov(count ~ spray, data = InsectSprays)
+
+insect_aov
+summary(insect_aov)
+# p-value = <2e-16 => reject H0
+
+# We conclude that not all six sprays are equally effective in repelling insects
+
+
+
+
+
+
+######################################################
+# Pair-wise testing
+
+
+
+######
+# Illustration of inflated Type I error rate under multiple testing
+
+
+# We conduct t-tests with the null hypothesis H0: mu = 0 for multiple data sets of size 20
+# where H0 is true.
+
+# We use significance level 0.05 -> probability of a Type I error in an individual test = 0.05
+
+
+
+t_test <- function(){
+  x <- rnorm(20, 0, 1)
+  res <- t.test(x, alternative = "two.sided", mu = 0)
+  c(res$statistic, res$p.value)
+}
+
+t19 <- function(x) dt(x, df = 19)
+curve(t19, from = -5, to = 5, lwd = 2, lty = 3)
+abline(h = 0, lwd = 1)
+q_lower <- qt(0.025, df = 19)
+segments(q_lower, 0, q_lower, t19(q_lower), col = 2, lwd = 2)
+segments(-q_lower, 0, -q_lower, t19(-q_lower), col = 2, lwd = 2)
+
+
+# We conduct a single test
+res_1 <- t_test()
+abline(v = res_1[1])
+# Probability of wrong conclusion is 0.05
+
+
+
+
+# We conduct 100 tests
+res_100 <- replicate(100, t_test())
+abline(v = res_100[1, ])
+# Probability of AT LEAST ONE wrong conclusion is >> 0.05 
+
+
+
+
+# Bonferroni correction: we decrease the significance level by dividing it
+# by the number of made tests
+# (increase the required amount of evidence)
+curve(t19, from = -5, to = 5, lwd = 2, lty = 3)
+abline(h = 0, lwd = 1)
+q_lower <- qt(0.025/100, df = 19)
+segments(q_lower, 0, q_lower, t19(q_lower) + 0.1, col = 2, lwd = 2)
+segments(-q_lower, 0, -q_lower, t19(-q_lower) + 0.1, col = 2, lwd = 2)
+
+abline(v = res_100[1, ])
+# Probability of AT LEAST ONE wrong conclusion is now <= 0.05 
+
+
+# The Bonferroni correction is equivalent to multiplying each individual p-value by
+# the number of tests (and using the original significance level)
+# (this interpretation loses the interpretation of p-values of probabilities and thinks of
+# them simply as the amount of found evidence)
+
+
+# Original p-values and the number of significant ones among them
+round(res_100[2, ], 3)
+sum(res_100[2, ] < 0.05)
+
+
+# Bonferroni-corrected p-values
+round(res_100[2, ]*100, 3)
+sum(res_100[2, ]*100 < 0.05)
+
+
+
+
+################################################
+# Pair-wise testing on the example data sets
+
+
+##### Chicken weights
+boxplot(weight ~ feed, data = chickwts)
+
+# Original p-values
+pairwise.t.test(chickwts$weight, chickwts$feed, p.adjust.method = "none")
+# 12 out of 15 pairs differ significantly
+
+
+# Bonferroni-corrected p-values
+pairwise.t.test(chickwts$weight, chickwts$feed, p.adjust.method = "bonferroni")
+# 8 out of 15 pairs differ significantly (4 of the 12 didn't carry enough evidence
+# that we could consider them different in the light of the multiple testing problem.)
+
+
+
+##### Plant yield under different conditions
+boxplot(weight ~ group, data = PlantGrowth)
+
+
+# Original p-values
+pairwise.t.test(PlantGrowth$weight, PlantGrowth$group, p.adjust.method = "none")
+
+
+# Bonferroni-corrected p-values
+pairwise.t.test(PlantGrowth$weight, PlantGrowth$group, p.adjust.method = "bonferroni")
+# Only differing pair is (trt2, trt1)
+
+
+
+##### Insect spray effectiveness
+boxplot(count ~ spray, data = InsectSprays)
+
+
+# Original p-values
+pairwise.t.test(InsectSprays$count, InsectSprays$spray, p.adjust.method = "none")
+# 9 out of 15 pairs differ
+
+
+# Bonferroni-corrected p-values
+pairwise.t.test(InsectSprays$count, InsectSprays$spray, p.adjust.method = "bonferroni")
+# 9 out of 15 pairs differ
+
+
+
+
+
+############################################################
+# Checking assumptions of ANOVA
+
+
+##### Chicken weights
+boxplot(weight ~ feed, data = chickwts)
+
+ggplot(chickwts, aes(x = weight)) +
+  geom_histogram(bins = 5) +
+  facet_wrap(~ feed, nrow = 3)
+
+# Small group size make normality checking difficult
+# -> could be that the individual groups are normal?
+
+
+# Variance assumption
+bartlett.test(weight ~ feed, data = chickwts)
+# No evidence against the null hypothesis of equal variances
+
+
+
+
+##### Plant yield under different conditions
+boxplot(weight ~ group, data = PlantGrowth)
+
+ggplot(PlantGrowth, aes(x = weight)) +
+  geom_histogram(bins = 5) +
+  facet_wrap(~ group, nrow = 3)
+
+# Same problems as for the chicken data with regards to checking normality
+
+
+# Variance assumption
+bartlett.test(weight ~ group, data = PlantGrowth)
+# No evidence against the null hypothesis of equal variances
+
+
+
+##### Insect spray effectiveness
+boxplot(count ~ spray, data = InsectSprays)
+
+ggplot(InsectSprays, aes(x = count)) +
+  geom_histogram(bins = 5) +
+  facet_wrap(~ spray, nrow = 3)
+
+# Same problems as for the chicken data with regards to checking normality
+
+
+# Variance assumption
+bartlett.test(count ~ spray, data = InsectSprays)
+# Strong evidence against H0 -> the variances are not equal
+
+
+
+##################
+# Optional "correction" for the insect spray data:
+# Taking a square root of the counts "stabilizes" the variances
+
+InsectSprays$count2 <- sqrt(InsectSprays$count)
+
+boxplot(count2 ~ spray, data = InsectSprays)
+ggplot(InsectSprays, aes(x = count2)) +
+  geom_histogram(bins = 5) +
+  facet_wrap(~ spray, nrow = 3)
+bartlett.test(count2 ~ spray, data = InsectSprays)
+insect_aov <- aov(count2 ~ spray, data = InsectSprays)
+summary(insect_aov)
+pairwise.t.test(InsectSprays$count2, InsectSprays$spray, p.adjust.method = "bonferroni")
+# 10 out of 15 pairs differ
+
+
+
+
+
+
+#####################################################
+# Connection between linear regression and ANOVA
+# We use the chicken weights data
+
+head(chickwts)
+boxplot(weight ~ feed, data = chickwts)
+
+chick_aov <- aov(weight ~ feed, data = chickwts)
+chick_aov
+summary(chick_aov)
+
+
+chick_reg <- lm(weight ~ feed, data = chickwts)
+chick_reg
+summary(chick_reg)
+
+# The ANOVA p-value is equal to the F-statistic p-value of linear regression
+
+
+
+# ANOVA-like effects can be added to linear regression to obtain "ANCOVA", analysis
+# of covariance, where both continuous and grouping variables are allowed.
+
+
+library(ggplot2)
+
+# Car data
+head(mpg)
+
+
+# We predict the fuel efficiency (highway miles/gallon) of cars
+# Based on their drive (front, rear, 4wd) and engine displacement 
+mpg_lm <- lm(hwy ~ displ + drv, data = mpg)
+summary(mpg_lm)
+# The baseline class of "drv" is 4wd (as it doesn't have it's own coefficient)
+# The coefficients of the other groups describe expected devations from this class
+
+
+# Note: the F-statistic p-value no longer corresponds to the one produced by ANOVA
+# as it tests whether all coefficients are zero (and there is also the continuous
+# variable in the model).
+
+
+
+
+
+######################################################
+# Non-parametric alternative to ANOVA
+
+
+##### Plant growth
+
+# Assumption on equal group shape seems plausible(?)
+ggplot(PlantGrowth, aes(x = weight)) +
+  geom_histogram(bins = 5) +
+  facet_wrap(~ group, nrow = 3)
+
+
+# Differences exist:
+kruskal.test(weight ~ group, data = PlantGrowth)
+
+
+# Same conclusion for pair-wise testing as for ANOVA
+pairwise.wilcox.test(PlantGrowth$weight, PlantGrowth$group, p.adjust.method = "bonferroni")
+
+
+
+
+
+
+##### Chicken feeds
+
+# Assumption on equal group shape seems plausible(?)
+ggplot(chickwts, aes(x = weight)) +
+  geom_histogram(bins = 5) +
+  facet_wrap(~ feed, nrow = 3)
+
+
+# Differences exist:
+kruskal.test(weight ~ feed, data = chickwts)
+
+
+# Same conclusion for pair-wise testing as for ANOVA
+pairwise.wilcox.test(chickwts$weight, chickwts$feed, p.adjust.method = "bonferroni")
+
+
+
+
+
+
+##### Insect sprays
+# (it does not matter whether we use the square root transformation as it is an
+# increasing function and as such preserves order of ranks!)
+
+# Assumption on equal group shape seems plausible(?)
+ggplot(InsectSprays, aes(x = count2)) +
+  geom_histogram(bins = 5) +
+  facet_wrap(~ spray, nrow = 3)
+
+
+# Differences exist:
+kruskal.test(count2 ~ spray, data = InsectSprays)
+
+
+# Same conclusion for pair-wise testing as for ANOVA
+pairwise.wilcox.test(InsectSprays$count2, InsectSprays$spray, p.adjust.method = "bonferroni")

@@ -1,0 +1,460 @@
+###########################
+# MS-C1620
+# Statistical inference
+# Lecture 4
+
+
+library(catdata)
+library(boot)
+
+
+# Significance level 0.05 thorughout
+
+
+#################################################################
+# Bernoulli and Binomial distributions
+
+# Prob. mass function for Beroulli
+p <- 0.6
+barplot(c(1 - p, p), names.arg = c(0, 1))
+
+# Prob. mass function for Binomial
+p <- 0.6
+n <- 20
+barplot(dbinom(0:20, n, p), names.arg = 0:20)
+
+
+
+
+
+
+
+#################################################################
+# Confidence intervals
+
+
+
+#################################################################
+# Unemployment
+
+data(unemployment)
+head(unemployment)
+help("unemployment")
+
+# A random (?) sample of 982 subjects amongst unemployed persons.
+# What is the true proportion of long-term unemployed people among unemployed?
+
+barplot(table(unemployment$durbin), names.arg = c("Short-term", "Long-term"))
+
+# A point estimate and a 95% confidence interval
+
+longterm <- 1*(unemployment$durbin == 2)
+longterm
+
+n <- length(longterm)
+
+m <- mean(longterm)
+m
+
+ci <- c(m - 1.96*sqrt(m*(1 - m)/n), m + 1.96*sqrt(m*(1 - m)/n))
+ci
+
+plot(0, col = 0, xlim = c(0, 1))
+abline(h = 0, lwd = 2)
+abline(v = c(m, ci), col = c(1, 2, 2))
+
+
+
+
+
+
+####################################################
+# Women with no offspring
+
+data(children)
+head(children)
+help("children")
+
+# A random (?) sample of 1761 subjects amongst all German women of certain age.
+# What is the true proportion of women without children? 
+
+barplot(table(children$child))
+
+# A point estimate and a 95% confidence interval (bootstrap)
+
+nochildren <- 1*(children$child == 0)
+nochildren
+
+n <- length(nochildren)
+
+m <- mean(nochildren)
+m
+
+
+B <- 1000
+mean_boot <- function(x, indices) mean(x[indices])
+boots <- sort(boot(nochildren, mean_boot, B)$t)
+ci <- c(boots[floor(B*0.025)], boots[floor(B*0.975)])
+ci
+
+plot(0, col = 0, xlim = c(0, 1))
+abline(h = 0, lwd = 2)
+abline(v = c(m, ci), col = c(1, 2, 2))
+
+
+
+
+
+
+#################################################################
+# Comparison of the coverage probabilities of bootstrap and CLT confidence intervals for binary data
+
+
+########### CLT
+
+n <- 10
+p <- 0.5
+
+x <- rbinom(n, 1, p)
+x
+
+m <- mean(x)
+m
+
+ci <- c(m - 1.96*sqrt(m*(1 - m)/n), m + 1.96*sqrt(m*(1 - m)/n))
+ci
+
+# The true value in the interval?
+p >= ci[1] & p <= ci[2]
+
+
+# The previous into function:
+clt_ci <- function(n, p){
+  m <- mean(rbinom(n, 1, p))
+  ci <- c(m - 1.96*sqrt(m*(1 - m)/n), m + 1.96*sqrt(m*(1 - m)/n))
+  p >= ci[1] & p <= ci[2]
+}
+
+# Large number of replications: proportion of intervals which cover the true value:
+mean(replicate(10000, clt_ci(10, 0.5)))
+
+
+
+########### Bootstrap
+
+
+n <- 10
+p <- 0.5
+x <- rbinom(n, 1, p)
+
+m <- 1000
+mean_boot <- function(x, indices) mean(x[indices])
+
+boots <- sort(boot(x, mean_boot, m)$t)
+ci <- c(boots[floor(m*0.025)], boots[floor(m*0.975)])
+ci
+
+# The true value in the interval?
+p >= ci[1] & p <= ci[2]
+
+
+
+# The previous into function:
+clt_bs <- function(n, p, m){
+  x <- rbinom(n, 1, p)
+  boots <- sort(boot(x, mean_boot, m)$t)
+  ci <- c(boots[floor(m*0.025)], boots[floor(m*0.975)])
+  p >= ci[1] & p <= ci[2]
+}
+
+# Large number of replications: proportion of intervals which cover the true value:
+mean(replicate(1000, clt_bs(10, 0.5, 1000)))
+
+
+
+########### Comparison
+mean(replicate(1000, clt_ci(10, 0.5)))
+mean(replicate(1000, clt_bs(10, 0.5, 1000)))
+
+# Bootstrap CI gives a better coverage (very close to the 95%) but at the cost of requiring more computation 
+
+
+
+
+
+
+
+
+
+
+
+##############################################################
+# One-sample proportion test
+
+# The data set "faithful" contains the waiting times between eruptions and the durations of the eruption
+# for the Old Faithful geyser in Yellowstone National Park, Wyoming, USA.
+faithful
+
+# A park ranger claims that less than every fourth eruption has a duration longer than 4 minutes 30 seconds
+# Test her claim using the one-sample proportion test and the significance level 5%
+
+# p = probability of long eruption
+# H0: p = 1/4
+# H1: p < 1/4
+
+# Binary data
+1*(faithful$eruptions > 4.5)
+
+n <- length(faithful$eruptions)
+n
+
+# Number of eruptions longer than 4 min 30 sec.
+x <- sum(faithful$eruptions > 4.5)
+x
+x/n
+
+# If the null hypotehsis is true (the prob. of long eruptions is 1/4)
+# then the distribution of the test statistic is:
+barplot(dbinom(0:n, n, 1/4), names.arg = 0:n, width = 1, space = 0)
+
+# We observed:
+abline(v = x, col = 2, lwd = 2)
+
+# Deviations toward H1 are in the low end of the graph (small numbers of long eruptions imply small prob.)
+
+# Propotion test
+prop.test(x, n, p = 0.25, alternative = "less", correct = FALSE)
+# -> Not enough evidence against the null -> not enough evidence for the ranger's claim
+
+
+
+
+
+
+###############################################################################
+# Unemployment data
+
+data("unemployment")
+head(unemployment)
+
+
+# Claim: more than 30% of unemployed are long-term unemployed
+
+# p = probability of long-term unemployment
+# H0: p = 0.30
+# H1: p > 0.30
+
+longterm <- 1*(unemployment$durbin == 2)
+x <- sum(longterm)
+n <- length(longterm)
+x/n
+# Is it likely to get this large proportion even if the true probability is 0.30?
+
+
+prop.test(x, n, p = 0.30, alternative = "greater", correct = FALSE)
+# H0 not plausible -> more than 30% of unemployed are long-term unemployed
+
+
+
+
+
+
+
+
+##############################################################
+# Two-sample proportion test
+
+head(iris)
+
+# An iris flower is said to have odd-shaped petals if the ratio of petal
+# length to petal width is smallerthan 3.
+
+# A botanist claims that it is more common for the iris of species virginica to have odd-shaped petals
+# than for the iris of species versicolor.
+
+# Test his claim using the two-sample proportion test and the significance level 5%
+
+# p1 = probability of odd-shaped petals for virginica
+# p2 = probability of odd-shaped petals for versicolor
+
+# H0: p1 = p2
+# H1: p1 > p2
+
+
+virginica <- iris[iris$Species == "virginica", ]
+x1 <- sum(virginica$Petal.Length/virginica$Petal.Width < 3.0)
+n1 <- nrow(virginica)
+
+x1/n1
+
+versicolor <- iris[iris$Species == "versicolor", ]
+x2 <- sum(versicolor$Petal.Length/versicolor$Petal.Width < 3.0)
+n2 <- nrow(versicolor)
+
+x2/n2
+
+
+
+prop.test(c(x1, x2), c(n1, n2), alternative = "greater", correct = FALSE)
+# Strong evidence against the null -> virginica has more frequently odd-shaped petals
+
+
+
+
+
+
+
+
+
+#####################################################################
+# Quiz
+
+
+# 1
+x <- c(5, -4, -2, 2)
+
+mean(x)
+sd(x)
+median(x)
+median(abs(x - median(x)))
+c(min(x), max(x))
+sign(x)
+rank(x)
+rank(abs(x))*sign(x)
+
+
+# 2
+# a. data with no outliers or with a bounded range
+# b. data with small amounts of outliers
+# c. discrete data with a small amount of possible values
+
+
+# 3
+# a. data with no outliers or with a bounded range
+# b. data with small amouns of outliers
+# c. data with bounded range
+
+
+# 4
+# a. the confidence interval is accurate, in the sense that it pinpoints the true value accurately (does not necessary have a large coverage probability, though)
+# b. we require lots of "evidence" to reject the null (accept any "effects")
+# c. no evidence against null (no "effect" is seen)
+# d. we think there is an effect when there is none
+# e. we fail to see an effect
+
+
+# 5
+# a. Two boxplots or histograms
+set.seed(123)
+heights <- data.frame(height = c(rnorm(40, 175, 5), rnorm(40, 165, 5)), sex = c(rep(0, 40), rep(1, 40)))
+boxplot(height ~ sex, data = heights)
+h1 <- hist(heights[heights$sex == 0, 1], breaks = 8)
+h2 <- hist(heights[heights$sex == 1, 1], breaks = 8)
+
+plot(h1, xlim = c(150, 190), col = rgb(0,0,1,1/4))
+plot(h2, add = TRUE, col = rgb(1,0,0,1/4))
+
+# or
+par(mfrow = c(2, 1))
+plot(h1, xlim = c(150, 190), col = rgb(0,0,1,1/4))
+plot(h2, xlim = c(150, 190), col = rgb(1,0,0,1/4))
+par(mfrow = c(1, 1))
+
+
+# b. Bar chart?
+barplot(table(sample(0:24, 300, TRUE)))
+
+
+# c. Bar chart again?
+props <- c(0.10, 0.04, 0.03, 0.01, 0.09)
+barplot(props, names.arg = 1:5)
+
+
+# d. Time series plot
+x <- cbind(20 + arima.sim(n = 100, list(ar = c(0.85)), sd = sqrt(10)),
+           1000 + arima.sim(n = 100, list(ar = c(0.65)), sd = sqrt(1000)),
+           420 + arima.sim(n = 100, list(ar = c(0.55)), sd = sqrt(500)))
+plot.ts(x)
+
+
+# e. A map with the postal areas colored based on the median salary in the region?
+# ...
+
+
+
+
+# 6.
+
+single_t <- function(){
+  x <- rnorm(10)
+  sqrt(10)*x/sd(x)
+}
+
+single_sign <- function(){
+  x <- rnorm(10)
+  sum(x > 0)
+}
+
+single_rank <- function(){
+  x <- rnorm(10)
+  sum((sign(x) == 1)*rank(abs(x)))
+}
+
+
+par(mfrow = c(1, 3))
+hist(replicate(1000, single_rank()), xlab = "", main = "")
+hist(replicate(1000, single_t()), xlab = "", main = "")
+hist(replicate(1000, single_sign()), xlab = "", main = "")
+par(mfrow = c(1, 1))
+
+
+data("psych")
+library(psych)
+data()
+
+
+
+
+#############################################################
+# Comparison of t-test, sign test and one-sample signed rank test
+
+
+data(cd4)
+cd4
+help(cd4)
+
+# Does the drug increase the amount of CD4 cells in the blood?
+
+# mu = the location of the distribution of the difference between oneyear and baseline
+# H0: mu = 0
+# H1: mu > 0
+
+
+# Visualization
+matplot(t(cd4), type = "l")
+
+difference <- cd4$oneyear - cd4$baseline
+difference
+hist(difference)
+
+
+
+# Paired t-test (assumes normality)
+t.test(difference, mu = 0, alternative = "greater")
+# small p-value -> drug works (assuming normality holds)
+
+
+# Paired sign test (assumes continuity)
+
+# No zero values
+sum(difference == 0)
+
+binom.test(sum(difference > 0), length(difference), alternative = "greater")
+# Small p-value -> drug works
+
+
+
+# Paired signed rank test (assumes continuity and symmetry)
+
+wilcox.test(x, mu = 0, alternative = "greater")
+# Small p-value -> drug works

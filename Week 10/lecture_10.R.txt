@@ -1,0 +1,339 @@
+###########################
+# MS-C1620
+# Statistical inference
+# Lecture 10
+
+library(car)
+library(MASS)
+library(glmnet)
+library(plotmo)
+
+
+
+
+
+##########################################################
+# Variable selection using backward/forward selection
+
+# Cut-off value 0.05
+
+
+###################
+# Swiss fertility data
+head(swiss)
+swiss_lm_1 <- lm(Fertility ~ ., data = swiss)
+summary(swiss_lm_1)
+
+
+
+# Backward selection
+
+# We drop "Examination"
+swiss_lm_2 <- lm(Fertility ~ Agriculture + Education + Catholic + Infant.Mortality, data = swiss)
+summary(swiss_lm_2)
+
+# All variables have p-values < 0.05 and the final model is
+# Fertility ~ Agriculture + Education + Catholic + Infant.Mortality
+# I.e. Agriculture, Education, Catholic, Infant.Mortality are the important variables
+
+
+
+
+
+# Forward selection
+
+# Use each variable in turn as the only predictor
+summary(lm(Fertility ~ Agriculture, data = swiss))$coef[, 4]
+summary(lm(Fertility ~ Examination, data = swiss))$coef[, 4]
+summary(lm(Fertility ~ Education, data = swiss))$coef[, 4]
+summary(lm(Fertility ~ Catholic, data = swiss))$coef[, 4]
+summary(lm(Fertility ~ Infant.Mortality, data = swiss))$coef[, 4]
+# Education has the smallest p-value below 0.05 -> add that to the model
+
+
+# Try again adding each other on top of education
+summary(lm(Fertility ~ Education + Agriculture, data = swiss))$coef[, 4]
+summary(lm(Fertility ~ Education + Examination, data = swiss))$coef[, 4]
+summary(lm(Fertility ~ Education + Catholic, data = swiss))$coef[, 4]
+summary(lm(Fertility ~ Education + Infant.Mortality, data = swiss))$coef[, 4]
+# Catholic has the smallest p-value below 0.05 -> add that to the model
+
+
+summary(lm(Fertility ~ Catholic + Education + Agriculture, data = swiss))$coef[, 4]
+summary(lm(Fertility ~ Catholic + Education + Examination, data = swiss))$coef[, 4]
+summary(lm(Fertility ~ Catholic + Education + Infant.Mortality, data = swiss))$coef[, 4]
+# Infant.Mortality has the smallest p-value below 0.05 -> add that to the model
+
+
+summary(lm(Fertility ~ Infant.Mortality + Catholic + Education + Agriculture, data = swiss))$coef[, 4]
+summary(lm(Fertility ~ Infant.Mortality + Catholic + Education + Examination, data = swiss))$coef[, 4]
+# Agriculture has the smallest p-value below 0.05 -> add that to the model
+
+
+summary(lm(Fertility ~ Agriculture + Infant.Mortality + Catholic + Education + Examination, data = swiss))$coef[, 4]
+# Only Examination is left to add and it gets a p-value larger than 0.05 -> not added to the model
+
+# The final model is
+# Fertility ~ Agriculture + Infant.Mortality + Catholic + Education
+# I.e. the same result as with backward selection
+
+
+
+
+
+
+######################################################
+# AIC, BIC and adjusted R-squared
+
+
+# Create all possible models
+library(plyr)
+
+all.subsets <- function(set) {
+  n <- length(set)
+  bin <- expand.grid(rlply(n, c(F, T)))
+  mlply(bin, function(...) { set[c(...)] })
+}
+
+list_models <- lapply(all.subsets(c("Agriculture", "Education", "Examination", "Catholic", "Infant.Mortality")), function(char) paste(char, collapse = " + "))
+
+
+# Make objects for AIC, BIC and adjusted R-squared values
+AICs <- numeric(32)
+BICs <- numeric(32)
+AR2s <- numeric(32)
+
+
+# The empty model is done separately
+swiss_empty <- lm(Fertility ~ 1, data = swiss)
+AICs[1] <- AIC(swiss_empty)
+BICs[1] <- BIC(swiss_empty)
+AR2s[1] <- summary(swiss_empty)$adj.r.squared
+
+
+# Go through all non-empty models
+for(i in 2:32){
+  swiss_i <- lm(as.formula(paste0("Fertility ~ ", list_models[[i]])), data = swiss)
+  AICs[i] <- AIC(swiss_i)
+  BICs[i] <- BIC(swiss_i)
+  AR2s[i] <- summary(swiss_i)$adj.r.squared
+}
+
+AICs
+BICs
+AR2s
+
+# Model with the best/minimal AIC
+list_models[[which.min(AICs)]]
+# Same as with backward and forward selection
+
+# Model with the best/minimal BIC
+list_models[[which.min(BICs)]]
+# Same as with backward and forward selection
+
+# Model with the best/maximal adjusted R-squared
+list_models[[which.max(AR2s)]]
+# Disagrees with the previous! Included also Examination
+
+
+
+
+
+
+
+###############################################################
+# Extra example: Step-wise AIC variable selection in diabetes data
+
+
+# Diabetes data
+
+library(lars)
+library(MASS)
+
+
+# Data with 442 with diabetes patients. For each, their disease progression one year after the baseline
+# was measured (the response "dia"), along with 10 baseline covariates/explanatory variables.
+data(diabetes)
+diabetes_1 <- cbind(diabetes$y, diabetes$x)
+colnames(diabetes_1)[1] <- "dia"
+diabetes_1 <- data.frame(diabetes_1)
+
+
+# Backward selection with AIC as criterion
+step(lm(dia ~ ., data = diabetes_1), direction = "backward")
+# Final model includes sex, bmi, map, tc, ldl, ltg  
+
+
+# Forward selection with AIC as criterion
+step(lm(dia ~ 1, data = diabetes_1),
+     scope = list(lower = lm(dia ~ 1, data = diabetes_1), upper = lm(dia ~ ., data = diabetes_1)),
+     direction = "forward")
+# Final model includes again sex, bmi, map, tc, ldl, ltg  
+
+
+
+
+
+
+
+##########################################################
+# Ridge regression and LASSO
+
+
+###################
+# Swiss fertility data
+head(swiss)
+
+
+##### Ridge regression
+
+# Using a single value of lambda does not really tell us anything
+swiss_ridge <- glmnet(as.matrix(swiss[, 2:6]), as.matrix(swiss[, 1]), alpha = 0, lambda = 3)
+swiss_ridge$beta
+
+
+# Instead, we compute the solution for a large set of lambdas
+# and plot the results (ridge profiles) as a function of lambda
+swiss_ridge <- glmnet(as.matrix(swiss[, 2:6]), as.matrix(swiss[, 1]), alpha = 0)
+swiss_ridge$lambda
+
+plot_glmnet(swiss_ridge, xvar = "lambda", label = TRUE)
+
+# It is difficult to do variable selection based on the ridge plot
+# as none of the coefficients are exactly zero...
+
+
+
+##### LASSO
+
+# LASSO solution
+swiss_lasso <- glmnet(as.matrix(swiss[, 2:6]), as.matrix(swiss[, 1]), alpha = 1)
+swiss_lasso$lambda
+
+
+# LASSO profiles
+plot_glmnet(swiss_lasso, xvar = "lambda", label = TRUE)
+
+
+# 10-fold cross-validation to select the value of lambda
+# C-V is random, and we fix the random seed so the results correspond to the text below...
+set.seed(12022019)
+swiss_cv <- cv.glmnet(as.matrix(swiss[, 2:6]), as.matrix(swiss[, 1]), alpha = 1, nfolds = 10)
+
+
+# The plot of lambda vs. prediction error.
+plot(swiss_cv)
+
+# The minimizing value:
+swiss_cv$lambda.min
+
+# The largest value still within 1 s.e. of optimality
+swiss_cv$lambda.1se
+
+
+plot_glmnet(swiss_lasso, xvar = "lambda", label = TRUE)
+abline(v = log(swiss_cv$lambda.min))
+abline(v = log(swiss_cv$lambda.1se), lty = 2)
+
+
+coef(glmnet(as.matrix(swiss[, 2:6]), as.matrix(swiss[, 1]), alpha = 1, lambda = swiss_cv$lambda.1se))
+
+# The LASSO suggests to retain all variables but agriculture
+#
+# Unlike It also holds Examination in great regard -> this is because LASSO does not say
+# anything about inference, it simple chooses the predictors that best predict
+# the response values, regardless of whether they were deemed statistically significant
+
+
+
+
+
+
+
+
+#####################
+# Diabetes data
+
+
+head(diabetes_1)
+
+##### Ridge regression
+diabetes_ridge <- glmnet(as.matrix(diabetes_1[, 2:11]), as.matrix(diabetes_1[, 1]), alpha = 0)
+diabetes_ridge$lambda
+
+# Ridge profiles
+plot_glmnet(diabetes_ridge, xvar = "lambda", label = TRUE)
+
+# Again, difficult to say what's going on, especially on the right end of the plot
+# (where we have the least amount of "money" and our choices matter the most)
+
+
+
+
+
+
+##### LASSO
+diabetes_lasso <- glmnet(as.matrix(diabetes_1[, 2:11]), as.matrix(diabetes_1[, 1]), alpha = 1)
+diabetes_lasso$lambda
+
+# LASSO profiles
+plot_glmnet(diabetes_lasso, xvar = "lambda", label = TRUE)
+
+
+# 10-fold cross-validation to select the value of lambda
+set.seed(12022019)
+diabetes_cv <- cv.glmnet(as.matrix(diabetes_1[, 2:11]), as.matrix(diabetes_1[, 1]), alpha = 1, nfolds = 10)
+
+# The plot of lambda vs. prediction error.
+plot(diabetes_cv)
+
+# The minimizing value:
+diabetes_cv$lambda.min
+
+# The largest value still within 1 s.e. of optimality
+diabetes_cv$lambda.1se
+
+
+plot_glmnet(diabetes_lasso, xvar = "lambda", label = TRUE)
+abline(v = log(diabetes_cv$lambda.min))
+abline(v = log(diabetes_cv$lambda.1se), lty = 2)
+
+
+coef(glmnet(as.matrix(diabetes_1[, 2:11]), as.matrix(diabetes_1[, 1]), alpha = 1, lambda = diabetes_cv$lambda.1se))
+
+# LASSO picks the variables:
+# bmi, map, hdl, ltg
+# Much fewer than the other methods...
+
+
+
+
+#####################
+# Prostate cancer data
+
+# Data to examine the correlation between the level of prostate-specific antigen
+# and a number of clinical measures in men who were about to receive a radical prostatectomy.
+# The goal is to predict the level of the antigen given the other variables.
+
+
+library(ElemStatLearn)
+data(prostate)
+head(prostate)
+
+prostate_lasso <- glmnet(as.matrix(prostate[, 1:8]), as.matrix(prostate[, 9]), alpha = 1)
+plot_glmnet(prostate_lasso, xvar = "lambda", label = TRUE)
+# The results quite clearly identify 3 key variables:
+# lcavol, lweight, svi
+
+# 10-fold cross-validation to select the value of lambda
+set.seed(12022019)
+prostate_cv <- cv.glmnet(as.matrix(prostate[, 1:8]), as.matrix(prostate[, 9]), alpha = 1, nfolds = 10)
+
+
+plot_glmnet(prostate_lasso, xvar = "lambda", label = TRUE)
+abline(v = log(prostate_cv$lambda.min))
+abline(v = log(prostate_cv$lambda.1se), lty = 2)
+
+
+coef(glmnet(as.matrix(prostate[, 1:8]), as.matrix(prostate[, 9]), alpha = 1, lambda = prostate_cv$lambda.1se))
+

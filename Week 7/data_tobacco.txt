@@ -1,0 +1,12 @@
+consumption	country	incidence
+220	Iceland	58
+250	Norway	90
+310	Sweden	115
+510	Canada	150
+380	Denmark	165
+455	Austria	170
+1280	USA	190
+460	Netherlands	245
+530	Switzerland	250
+1115	Finland	350
+1145	GB	465

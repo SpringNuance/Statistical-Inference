@@ -1,0 +1,256 @@
+###########################
+# MS-C1620
+# Statistical inference
+# Lecture 9
+
+library(car)
+
+# We use the significance level 0.05 throughout the script
+
+
+###########################################################
+# Examples of data sets with a response and multiple predictors/explanatory variables
+
+
+
+###################
+# Swiss fertility data
+
+# Standardized fertility measure and socio-economic indicators
+# for each of 47 French-speaking provinces of Switzerland at about 1888.
+head(swiss)
+?swiss
+
+# The effect of two variables to the response can still be visualized fully 
+library(rgl)
+# (Opens in a new window)
+open3d()
+plot3d(swiss[, c(2, 3, 1)])
+
+# Is the surface linear?
+
+# For more than two predictors, we need to resort to pair-wise plotting
+pairs(swiss)
+
+# Which factors influence the fertility?
+
+
+
+
+
+###################
+# Marketing data
+
+# install.packages("devtools")
+# library(devtools)
+# devtools::install_github("kassambara/datarium")
+library(datarium)
+
+# A data frame containing the impact of three advertising medias (youtube, facebook and newspaper) on sales
+head(marketing)
+?marketing
+
+# Linear relationships?
+pairs(marketing)
+
+# Do the advertisements have an effect on the sales and if so, how large?
+
+
+
+
+#####################
+# Diabetes data
+
+# install.packages("lars")
+library(lars)
+
+# Data with 442 with diabetes patients. For each, their disease progression one year after the baseline
+# was measured (the response "dia"), along with 10 baseline covariates/explanatory variables.
+data(diabetes)
+
+diabetes_1 <- cbind(diabetes$y, diabetes$x)
+colnames(diabetes_1)[1] <- "dia"
+diabetes_1 <- data.frame(diabetes_1)
+
+# (The variables have been standardized)
+head(diabetes_1)
+
+pairs(diabetes_1)
+
+# We want to predict the diabetes progression using the baseline variables
+
+
+
+
+
+##########################################################
+# Fitting a multiple linear model
+
+
+
+###################
+# Swiss fertility data
+head(swiss)
+swiss_lm <- lm(Fertility ~ ., data = swiss)
+summary(swiss_lm)
+
+# Interpretations: when the percentage of males involved in agriculture as occupation (Agriculture) grows by
+# one, the expected fertility goes down -0.17 units, etc.
+
+# VIFs show no significant multicollinearity
+vif(swiss_lm)
+
+
+# R2-value: 0.7067 -> a very good fit
+
+
+# Diagnostics:
+plot(predict(swiss_lm), resid(swiss_lm), xlab = "Fitted values", ylab = "Residuals")
+abline(h = 0)
+
+# The points seem to be approximately evenly distributed around the line y = 0
+# Their variance seems not to depend on the fitted value
+# No non-linear patterns are visible
+
+# -> The regression model assumptions look plausible!
+
+
+
+
+
+###################
+# Marketing data
+
+head(marketing)
+marketing_lm <- lm(sales ~ ., data = marketing)
+summary(marketing_lm)
+
+# When the Facebook advertising budget is increased by 1000$ (check the units from the help file),
+# the expected sales go up 0.19 units
+
+# No significant multicollinearity
+vif(marketing_lm)
+
+# R2-value: 0.8972 -> an extremely good fit
+
+
+# Diagnostics:
+plot(predict(marketing_lm), resid(marketing_lm), xlab = "Fitted values", ylab = "Residuals")
+abline(h = 0)
+
+# A clear non-linear pattern is visible
+
+# -> The model assumptions do not hold
+# We change the model
+
+
+pairs(marketing)
+
+# Adding a log(youtube) term does not help
+marketing_lm_2 <- lm(sales ~ youtube + I(log(youtube)) + facebook, data = marketing)
+summary(marketing_lm_2)
+plot(predict(marketing_lm_2), resid(marketing_lm_2), xlab = "Fitted values", ylab = "Residuals")
+abline(h = 0)
+
+
+# What does help, is adding also a product of youtube*facebook (coded below as youtube:facebook)
+marketing_lm_3 <- lm(sales ~ I(log(youtube)) + facebook + youtube:facebook, data = marketing)
+summary(marketing_lm_3)
+plot(predict(marketing_lm_3), resid(marketing_lm_3), xlab = "Fitted values", ylab = "Residuals")
+abline(h = 0)
+
+# Interpretation: 
+# 1. there's a non-linear dependency between youtube and sales
+# 2. the more you spend on youtube, the more benefit you gain from spending on facebook 
+
+
+# Inference:
+# log(youtube), facebook and facebook:youtube are significant predictors (the dependency between sales
+# and them is not just random noise).
+
+
+
+
+
+#####################
+# Diabetes data
+
+head(diabetes_1)
+diabetes_lm <- lm(dia ~ ., data = diabetes_1)
+summary(diabetes_lm)
+
+# Interpretations as before...
+
+# ...however, this time multicollinearity is present 
+vif(diabetes_lm)
+
+# we can see the multicollinearity clearly here
+plot(diabetes_1$ldl + diabetes_1$hdl, diabetes_1$tc )
+
+# We remove the variable with highest VIF, which is TC (total cholesterol)
+diabetes_lm_2 <- lm(dia ~ age + sex + bmi + map + ldl + hdl + tch + ltg + glu, data = diabetes_1)
+vif(diabetes_lm_2)
+
+# No more significant multicollinearities
+summary(diabetes_lm_2)
+# Coefficient for ldl and hdl changed signs!
+
+
+# R2-value: 0.5137 -> a quite good fit
+
+
+# Diagnostics:
+plot(predict(diabetes_lm_2), resid(diabetes_lm_2), xlab = "Fitted values", ylab = "Residuals")
+abline(h = 0)
+
+# The points seem to be approximately evenly distributed around the line y = 0
+# Their variance depends on the fitted value
+# A non-linear patterns seems to be visible
+
+# -> The regression model assumptions do not look plausible!
+
+# The next step could be to remove the non-significant predictors and try transforming the rest...
+
+
+
+
+
+
+###########################################
+# Bootstrap confidence interval for the R-squared in the fertility data
+
+
+# Point estimate
+swiss_lm <- lm(Fertility ~ ., data = swiss)
+summary(swiss_lm)$r.squared
+
+
+# Bootstrapping.
+# We do bootstrapping for three different quantities:
+# For R^2, and for two coefficients (agriculture and examination).
+
+n <- nrow(swiss)
+B <- 1000
+res <- 0
+beta_agri <- 0
+beta_exam <- 0
+
+for(i in 1:B){
+  swiss_boot <- swiss[sample(1:n, n, TRUE), ]
+  model <- lm(Fertility ~ ., data = swiss_boot)
+  res[i] <- summary(model)$r.squared
+  beta_agri[i]  <- summary(model)$coef["Agriculture","Estimate"]
+  beta_exam[i]  <- summary(model)$coef["Examination","Estimate"]
+}
+
+hist(res, breaks=20)
+hist(beta_agri, breaks=20)
+hist(beta_exam, breaks=20)
+
+# Bootstrap 95% confidence intervals
+quantile(res, probs = c(0.025, 0.975))
+# In some sense with 95% probability the true R^2 is in the interval (0.59, 0.85)
+
+quantile(beta_agri, probs = c(0.025, 0.975))
+quantile(beta_exam, probs = c(0.025, 0.975))
+

@@ -1,0 +1,429 @@
+###########################
+# MS-C1620
+# Statistical inference
+# Lecture 6
+
+
+# We use the significance level 0.05 throughout the script
+
+
+###########################
+# Forms of dependency
+# EX1
+
+# Compare the following forms of dependency
+
+
+### Dependency between continuous and continuous variable
+### Sepal length vs sepal width of setosa-irises
+iris
+plot(iris[1:50, 1], iris[1:50, 2], xlab = "Sepal length", ylab = "Sepal width")
+
+
+
+### Dependency between continuous and continuous variable
+### Ozone content vs. temperature
+airquality
+plot(airquality[, 1], airquality[, 4], xlab = "Ozone content", ylab = "Temperature")
+
+
+### Dependency between continuous and continuous variable
+### Artificial data with circular shape
+phi <- runif(400, 0, 2*pi)
+r <- runif(400, 1, 1.5)
+x <- r*cos(phi)
+y <- r*sin(phi)
+plot(x, y, asp = 1)
+
+# Note: no dependency in polar coordinates!
+plot(phi, r)
+
+
+### Dependency between categorial and continuous variable
+### Chicken weight vs. feed type
+boxplot(weight ~ feed, data = chickwts)
+
+### what if we treat feed as numerical 1...6
+chickmatrix = data.matrix(chickwts)
+chickx = chickmatrix[,2]
+chicky = chickmatrix[,1]
+plot(chickx,chicky)
+
+
+### Dependency within a single sample of continuous variable
+### Approval ratings of US presidents
+plot(presidents)
+
+
+### Dependency within and between multiple samples of continuous variables
+### Daily closing prices of major European stock indices
+plot(EuStockMarkets)
+
+
+
+
+
+###########################
+# Linear dependence
+
+### Perfect linear dependence
+x <- rnorm(100)
+y <- 10 - 2*x
+
+plot(x, y)
+
+
+### Zero linear dependence (but some other dependence still)
+x <- rnorm(10000)
+y <- x^2
+plot(x, y)
+cor(x, y)
+
+
+### Correlations for some of the previous examples
+
+
+# Iris
+plot(iris[1:50, 1], iris[1:50, 2], xlab = "Sepal length", ylab = "Sepal width")
+cor(iris[1:50, 1], iris[1:50, 2])
+# (Note also the correlation matrix:)
+cor(iris[1:50, 1:4])
+
+
+# Air quality
+plot(airquality[, 1], airquality[, 4], xlab = "Ozone content", ylab = "Temperature")
+cor(airquality[, 1], airquality[, 4], use = "complete.obs")
+
+
+# Circle data
+phi <- runif(400, 0, 2*pi)
+r <- runif(400, 1, 1.5)
+x <- r*cos(phi)
+y <- r*sin(phi)
+plot(x, y)
+cor(x, y)
+
+
+# Correlation with the series itself!
+plot(presidents)
+delay = 1
+plot(presidents[1:(120-delay)], presidents[(1+delay):120])
+cor(presidents[1:(120-delay)], presidents[(1+delay):120], use = "complete.obs")
+
+delay = 2
+cor(presidents[1:(120-delay)], presidents[(1+delay):120], use = "complete.obs")
+
+delay = 4
+cor(presidents[1:(120-delay)], presidents[(1+delay):120], use = "complete.obs")
+
+delay = 8
+cor(presidents[1:(120-delay)], presidents[(1+delay):120], use = "complete.obs")
+
+
+
+###########################
+# EX2 Bivariate normal distribution
+
+library(MASS)
+library(KernSmooth)
+
+# for rotateable plots (persp3d)
+library(rgl)
+
+# Bivariate normal with variances 1, means 0, and correlation 0.5
+x <- mvrnorm(10000, c(0, 0), matrix(c(1, 0.5, 0.5, 1), 2, 2))
+plot(x)
+persp(bkde2D(x, 0.25)$fhat)
+persp3d(bkde2D(x, 0.25)$fhat, col="green")   # rotateable plot
+
+# Bivariate normal with variances 1, means 0, and correlation 0.8
+x <- mvrnorm(10000, c(0, 0), matrix(c(1, 0.8, 0.8, 1), 2, 2))
+plot(x)
+persp(bkde2D(x, 0.25)$fhat)
+persp3d(bkde2D(x, 0.25)$fhat, col="green")
+
+
+
+###########################
+# EX3 95% confidence intervals for Pearson correlation
+
+
+### Sepal length vs sepal width of setosa-irises
+x <- iris[1:50, 1]
+y <- iris[1:50, 2]
+n <- 50
+
+# Is this bivariate normal?
+plot(x, y)
+persp(bkde2D(data.frame(x, y), 0.25)$fhat, theta = 45)
+persp3d(bkde2D(data.frame(x, y), 0.25)$fhat, theta = 45, col="green")
+
+cor(x, y)
+
+
+### Parametric confidence interval under the assumption of normality
+ci_par <- c(tanh(atanh(cor(x, y)) - 1.96/sqrt(n - 3)), tanh(atanh(cor(x, y)) + 1.96/sqrt(n - 3)))
+ci_par
+
+# Note: not symmetric around the estimate
+plot(c(ci_par, cor(x, y)), rep(1, 3), xlim = c(0, 1))
+
+
+
+
+### Non-parametric confidence interval
+B <- 1000
+res <- rep(0, B)
+
+for(b in 1:B){
+  res[b] <- cor(cbind(x, y)[sample(1:n, n, replace = TRUE), ])[1, 2]
+}
+
+# Distribution of the bootstrap correlations
+hist(res, breaks = 20)
+
+# 95% BS confidence interval
+ci_bs <- quantile(res, probs = c(0.025, 0.975))
+abline(v = ci_bs, lwd = 2, col = 2)
+ci_bs
+
+# Parametric 95% confidence interval assuming normality
+abline(v = ci_par, lwd = 2, col = 3)
+
+# Quite different answers by the parametric and non-parametric approaches -> safer to trust non-parametric
+
+
+
+
+
+
+
+###################################
+# Two-sample test for Pearson correlation
+
+### Sepal length/sepal width correlations of setosa vs. versicolor
+# Claim the correlations differ for the two species
+
+# Setosa
+x_setosa <- iris[1:50, 1]
+y_setosa <- iris[1:50, 2]
+n <- 50
+
+plot(x_setosa, y_setosa)
+cor(x_setosa, y_setosa)
+
+
+# Versicolor
+x_versicolor <- iris[51:100, 1]
+y_versicolor <- iris[51:100, 2]
+m <- 50
+
+plot(x_versicolor, y_versicolor)
+cor(x_versicolor, y_versicolor)
+
+
+# Test whether the populatation correlation differ
+# H0: rho1 == rho2
+# H1: rho1 != rho2
+
+z <- (atanh(cor(x_setosa, y_setosa)) - atanh(cor(x_versicolor, y_versicolor)))/sqrt(1/(n - 3) + 1/(m - 3))
+2*pnorm(abs(z), lower.tail = FALSE)
+
+# Not quite enough evidence against H0 -> we continue to believe that the correlations could be equally large
+
+
+
+
+
+##################################
+# Significance tests for correlation
+
+
+### Petal length vs petal width of setosa-irises
+# Is the correlation significant?
+# H0: rho == 0
+# H0: rho != 0
+
+x <- iris[1:50, 3]
+y <- iris[1:50, 4]
+n <- 50
+plot(x, y) # is this bivariate normal?
+cor(x, y)
+
+
+### Parametric test (null = zero correlation)
+cor.test(x, y)
+# -> enough evidence against null -> the correlation is significant if we can trust the normality of the data
+
+
+
+
+
+
+### EX4 Non-parametric permutation test
+
+B <- 1000
+res <- rep(0, B)
+
+for(b in 1:B){
+  res[b] <- cor(x, sample(y, n, replace = FALSE))
+}
+
+# Distribution of the permutation test replicates
+hist(res, breaks = 20)
+
+
+# Estimated probability of observing a more deviating value for the correlation under H0
+abline(v = abs(cor(x, y)), col = 2, lwd = 2)
+abline(v = -1*abs(cor(x, y)), col = 2, lwd = 2)
+mean(res >= abs(cor(x, y)))
+# Very similar p-value as in the parametric test -> same conclusion
+
+
+
+
+
+
+
+
+
+
+##################################
+# EX5 Spearman correlation
+
+
+### Visualization
+
+x1 <- c(1, 2, 3, 4, 5)
+y1 <- c(1, 8, 27, 64, 125)
+plot(x1, y1, type = "b")
+# Spearman correlation ignores the "magnitude" by first "straightening" the data
+plot(rank(x1), rank(y1), type = "b")
+
+
+x2 <- c(1, 2, 3, 4, 5)
+y2 <- c(1, 8, 27, 16, 125)
+plot(x2, y2, type = "b")
+plot(rank(x2), rank(y2), type = "b")
+
+
+
+x3 <- c(1, 2, 3, 4, 5)
+y3 <- c(1, 1.2, 4, 4.2, 7)
+plot(x3, y3, type = "b")
+plot(rank(x3), rank(y3), type = "b")
+
+
+
+
+
+
+### Ozone content vs. temperature
+
+full_obs <- (!is.na(airquality[, 1])) & (!is.na(airquality[, 4]))
+x <- airquality[full_obs, 1]
+y <- airquality[full_obs, 4]
+n <- length(x)
+
+plot(x, y, xlab = "Ozone content", ylab = "Temperature")
+
+
+
+
+
+### Pearson correlation, boostrap confidence interval and a permutation test
+cor(x, y)
+
+
+### Bootstrap
+B <- 1000
+res <- rep(0, B)
+
+for(b in 1:B){
+  res[b] <- cor(cbind(x, y)[sample(1:n, n, replace = TRUE), ])[1, 2]
+}
+
+# Distribution of the bootstrap correlations
+hist(res, breaks = 20)
+
+# 95% BS confidence interval
+ci_bs <- quantile(res, probs = c(0.025, 0.975))
+abline(v = ci_bs, lwd = 2, col = 2)
+ci_bs
+
+
+
+### Permutation test
+B <- 1000
+res <- rep(0, B)
+
+for(b in 1:B){
+  res[b] <- cor(x, sample(y, n, replace = FALSE))
+}
+
+# Distribution of the permutation test replicates
+hist(res, breaks = 20)
+
+# Estimated probability of observing a more deviating value for the correlation under H0
+mean(res >= abs(cor(x, y)))
+# p-value = 0 -> Pearson correlation differs significantly from zero
+
+
+
+
+
+
+### Spearman correlation, boostrap confidence interval and a permutation test
+rx <- rank(x)
+ry <- rank(y)
+plot(rx, ry, xlab = "rank(Ozone content)", ylab = "rank(Temperature)")
+
+
+cor(rx, ry)
+# Spearman correlation is larger than Pearson -> there is more monotonic dependency inthe data than
+# linear dependency
+
+
+### Bootstrap
+B <- 1000
+res <- rep(0, B)
+
+for(b in 1:B){
+  res[b] <- cor(cbind(rx, ry)[sample(1:n, n, replace = TRUE), ])[1, 2]
+}
+
+# Distribution of the bootstrap correlations
+hist(res, breaks = 20)
+
+# 95% BS confidence interval
+ci_bs <- quantile(res, probs = c(0.025, 0.975))
+abline(v = ci_bs, lwd = 2, col = 2)
+ci_bs
+
+
+
+### Permutation test
+B <- 1000
+res <- rep(0, B)
+
+for(b in 1:B){
+  res[b] <- cor(rx, sample(ry, n, replace = FALSE))
+}
+
+# Distribution of the permutation test replicates
+hist(res, breaks = 20)
+
+# Estimated probability of observing a more deviating value for the correlation under H0
+mean(res >= abs(cor(rx, ry)))
+# p-value = 0 -> Spearman correlation differs significantly from zero
+
+
+# Conclusions:
+# There is both linear and monotonic dependency in the data
+# The monotonic dependency is a somewhat stronger than the linear dependency
+# -> When we move to linear models, maybe some transformations should be done to achieve linearity
+
+
+plot(x, y, xlab = "Ozone content", ylab = "Temperature")
+plot(log(x), y, xlab = "log(Ozone content)", ylab = "Temperature")
+

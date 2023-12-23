@@ -1,0 +1,178 @@
+################################
+# MS-C1620
+# Summary lecture
+
+
+library(carData)
+library(tidyverse)
+library(MASS)
+library(reldist)
+
+
+
+####################
+# Example problem 1
+
+
+# Data with 39 highways in Minnesota
+
+# Explore the connection between
+# - Accident rate between million vehicle miles
+# - Percentage of trucks (out of all vehicles)
+
+data_1 <- data.frame(accident_rate = Highway1$rate, truck_perc = Highway1$trks)
+head(data_1)
+#
+
+
+
+
+
+plot(accident_rate ~ truck_perc, data = data_1)
+#
+
+
+
+
+
+lm_1 <- lm(accident_rate ~ truck_perc, data = data_1)
+summary(lm_1)
+#
+
+
+
+
+resid_1 <- data.frame(res = residuals(lm_1), fit = fitted(lm_1))
+plot(res ~ fit, data = resid_1)
+abline(h = 0)
+#
+
+
+
+
+
+
+####################
+# Example problem 2
+
+
+# Data with 30351 subjects 
+
+# Explore the connection between
+# - Education in years, categorical variable with groups (5, 10], (10, 15]
+# - Vocabulary test score, 1-10
+
+data_2 <- data.frame(education = cut(Vocab$education, breaks = c(5, 10, 15)),
+                     test_score = Vocab$vocabulary) %>%
+  filter(!is.na(education))
+head(data_2)
+#
+
+
+
+boxplot(test_score ~ education, data = data_2)
+ggplot(data_2, aes(x = test_score)) +
+  geom_bar(aes(y = ..prop.., group = 1)) +
+  facet_wrap(. ~ education)
+#
+
+
+
+ttest_2 <- t.test(test_score ~ education, data = data_2)
+ttest_2
+#
+
+
+
+
+ranktest_2 <- wilcox.test(test_score ~ education, data = data_2)
+ranktest_2
+
+
+
+
+
+
+
+####################
+# Example problem 3
+
+
+# Data with 237 Statistics I students at the University of Adelaide
+
+# Research question:
+# Is smoking equally common among both sexes?
+
+
+data_3 <- data.frame(sex = survey$Sex, smoking = !(survey$Smoke == "Never")) %>%
+  filter(!is.na(sex)) %>%
+  filter(!is.na(smoking))
+head(data_3)
+#
+
+
+
+
+plot(table(data_3))
+#
+
+
+
+
+counts_3 <- c(by(data_3$smoking, data_3$sex, sum))
+totals_3 <- c(table(data_3$sex))
+prop.test(counts_3, totals_3)
+#
+
+
+
+
+
+
+####################
+# Example problem 4
+
+
+# Data with 4147 subjects
+
+# Research question:
+# Is the Gini-coefficient of in Canada smaller than 0.25?
+#
+# Gini-coefficient measures the inequality in the income distribution
+# * 0 perfect equality
+# * 1 perfect inequality
+
+
+
+data_4 <- data.frame(wages = SLID$wages) %>%
+  filter(!is.na(wages))
+head(data_4)
+#
+
+
+
+
+hist(data_4$wages, breaks = 30)
+gini(data_4$wages)
+#
+
+
+
+
+n <- nrow(data_4)
+res <- NULL
+B <- 1000
+for(b in 1:B){
+  res[b] <- gini(sample(data_4$wages, n, TRUE))
+}
+hist(res)
+#
+
+
+
+
+
+quantile(res, c(0.005, 0.995))
+#
+
+

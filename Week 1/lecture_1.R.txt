@@ -1,0 +1,145 @@
+###########################
+# MS-C1620
+# Statistical inference
+# Lecture 1
+
+
+
+
+####################################################################################
+# Examples of data sets
+
+iris
+help(iris)
+str(iris)
+
+
+# A data set that is the whole population
+Titanic
+help(Titanic)
+
+
+
+
+
+####################################################################################
+# Examples of data from different types of studies
+
+randu
+help(randu)
+
+chickwts 
+help(chickwts)
+
+occupationalStatus
+help(occupationalStatus)
+
+presidents
+help(presidents)
+
+
+# More data sets can be found using the command data()
+data()
+
+
+
+
+
+####################################################################################
+# Visualization
+
+library(rgl)
+# Opens in a new window
+open3d()
+plot3d(randu)
+
+
+boxplot(weight ~ feed, data = chickwts)
+
+
+heatmap(occupationalStatus, Colv = NA, Rowv = NA, revC = TRUE)
+# Or something fancier
+heatmap(occupationalStatus)
+
+
+plot.ts(presidents)
+
+
+
+
+
+
+####################################################################################
+# Descriptive statistics and robustness
+
+# Three data sets
+x <- iris$Sepal.Width
+hist(x)
+y <- c(x[1:149], 100)
+hist(y)
+z <- c(x[1:145], rnorm(5, 100, 10))
+hist(z)
+
+# Location
+mean(x)
+mean(y)
+mean(z)
+
+mean(x, trim = 0.2)
+mean(y, trim = 0.2)
+mean(z, trim = 0.2)
+
+median(x)
+median(y)
+median(z)
+
+(quantile(x, 0.25) + quantile(x, 0.75))/2
+(quantile(y, 0.25) + quantile(y, 0.75))/2
+(quantile(z, 0.25) + quantile(z, 0.75))/2
+
+
+# Scatter
+sd(x)
+sd(y)
+sd(z)
+
+mad(x)
+mad(y)
+mad(z)
+
+max(x) - min(x)
+max(y) - min(y)
+max(z) - min(z)
+
+IQR(x)
+IQR(y)
+IQR(z)
+
+
+# Skewness
+library(moments)
+
+skewness(x)
+skewness(y)
+skewness(z)
+
+(mean(x) - median(x))/sd(x)
+(mean(y) - median(y))/sd(y)
+(mean(z) - median(z))/sd(z)
+
+
+# Kurtosis
+
+kurtosis(x) - 3
+kurtosis(y) - 3
+kurtosis(z) - 3
+
+
+# Correlation
+
+x1 <- iris$Sepal.Length
+x2 <- iris$Petal.Length
+plot(x1, x2)
+
+cor(x1, x2)
+abline(lm(x2 ~ x1))

@@ -1,0 +1,256 @@
+###########################
+# MS-C1620
+# Statistical inference
+# Lecture 5
+
+
+# We use the significance level 0.05 throughout the script
+
+
+################################################
+# What is a chi-squared distribution?
+#
+# If X~N(0,1), then X^2 is NOT normal.
+# It has "chi-squared distribution" (with parameter 1).
+X = rnorm(100000)
+C = X^2
+hist(X,50)
+hist(C,50)
+X[1:5]
+C[1:5]
+var(C)
+
+# If you add TWO squared standard normals, you get
+# again a new distribution.  It is chi2 with parameter 2.
+X = rnorm(100000)
+Y = rnorm(100000)
+C = X^2 + Y^2
+C[1:5]
+hist(C,50)
+var(C)
+
+# If you add FIVE squared standard normals, you get
+# chi2 with parameter five.
+X1 = rnorm(100000)
+X2 = rnorm(100000)
+X3 = rnorm(100000)
+X4 = rnorm(100000)
+X5 = rnorm(100000)
+C = X1^2 + X2^2 + X3^2 + X4^2 + X5^2
+C[1:5]
+hist(C,50)
+var(C)
+
+
+
+################################################
+# Normality testing
+
+# Consider three data sets:
+# 1. The sepal lengths of 100 irises of the species Versicolor and Virginica
+# 2. The January sunspot numbers for the years 1749-1848
+# 3. A random sample of size 100 from the standard normal distribution
+
+x1 <- iris[51:150, 1]
+x2 <- sunspots[seq(1, by = 12, length.out = 100)]
+x3 <- rnorm(100)
+
+# Do the samples look normal?
+hist(x1, breaks = 10)
+hist(x2, breaks = 10)
+hist(x3, breaks = 30)
+
+
+# Multiple histograms of normal samples
+par(mfrow = c(4, 2))
+invisible(replicate(8, hist(rnorm(100), breaks = 10)))
+par(mfrow = c(1, 1))
+
+
+# Bowman-Shenton/Jarque-Bera test
+library(tseries)
+jarque.bera.test(x1)
+# No evidence against normality
+
+jarque.bera.test(x2)
+# Strong evidence aganist normality
+
+x3 <- rnorm(1000)
+jarque.bera.test(x3)
+
+
+# QQ-plot
+qqnorm(x1)
+qqline(x1)
+# The sample is slightly right-skew?
+
+qqnorm(x2)
+qqline(x2)
+# The sample is heavily right-skew
+
+qqnorm(x3)
+qqline(x3)
+
+
+# Shapiro-Wilk test
+shapiro.test(x1)
+# No evidence against normality
+
+shapiro.test(x2)
+# Strong evidence against normality
+
+shapiro.test(x3)
+
+
+
+
+
+
+
+#####################################################################
+# Multinomial distribution
+
+
+# Probability of having eye color
+# BROWN | GREEN | BLUE
+# 0.43  | 0.32  | 0.25
+
+# We observe 100 people
+
+# A sample from Multinomial(100, 0.43, 0.32, 0.25)
+rmultinom(1, 100, c(0.43, 0.32, 0.25))
+# Counts will typically NOT be exactly in the
+# expected proportions. (It is a random sample!)
+
+
+#####################################################################
+# Chi-squared tests
+
+
+
+##########################
+# X^2 goodness-of-fit for discrete data
+
+#Distribution of hair and eye color and sex in 592 statistics students.
+HairEyeColor
+
+# H0: the distribution (probabilities) of hair colors is (0.20, 0.50, 0.10, 0.20) for
+# (Black, Brown, Red, Blond)?
+hair <- margin.table(HairEyeColor, 1)
+hair
+hair/sum(hair)
+
+# Observed and expected
+hair
+sum(hair)*c(0.2, 0.5, 0.1, 0.2)
+
+chisq.test(hair, p = c(0.20, 0.50, 0.10, 0.20))
+# No evidence against H0
+
+
+
+
+
+##########################
+# X^2 goodness-of-fit for discretized data
+
+# Is the sunspot data we used before from an exponential distribution
+x2 <- sunspots[seq(1, by = 12, length.out = 100)]
+hist(x2, breaks = 15, probability = TRUE, ylim = c(0, 0.022))
+
+
+# Estimate the parameters
+lambdahat <- 1/mean(x2)
+lambdahat
+
+expfit <- function(x){ dexp(x, rate = lambdahat) }
+curve(expfit, add = TRUE, col = 3, lwd = 2)
+
+
+# Break the distribution into 8 categories, (0, 25, 50,...) + leftover category
+hist(x2, breaks = 15, xlim = c(-1, 201), ylim = c(0, 23))
+abline(v = seq(0, 200, by = 25), col = "red", lwd = 2)
+
+# Observed frequencies
+cum_x2_obs <- sapply(seq(0, 200, by = 25), function(i) sum(x2 <= i))[-1]
+x2_obs <- c(cum_x2_obs[1], diff(cum_x2_obs), 0)
+x2_obs
+
+# Expected frequencies
+curve(expfit, col = 3, lwd = 2, from = 0, to = 201)
+abline(h = 0, lwd = 1)
+segments(seq(0, 200, by = 25), rep(0, 9), seq(0, 200, by = 25), expfit(seq(0, 200, by = 25)), col = 2, lwd = 2)
+
+p_exp <- diff(pexp(seq(0, 200, by = 25), rate = lambdahat))
+x2_exp <- 100*p_exp
+c(x2_exp, 100 - sum(x2_exp))
+
+# The probabilities don't sum to one so we add one extra category
+# Degrees of freedom is "categories" - 1 - "est. parameters" = 9 - 1 - 1 = 7
+pchisq(chisq.test(x2_obs, p = c(p_exp, 1 - sum(p_exp)))$statistic, df = 7, lower.tail = FALSE)
+# No evidence against the null that the data comes from an exponential distribution
+
+
+
+
+
+
+##########################
+# X^2 test of homogeneity
+
+# This data set provides information on the fate of passengers on the fatal maiden voyage
+# of the ocean liner 'Titanic', summarized according to economic status (class), sex, age and survival.
+Titanic
+
+# Let's assume that the 1st, 2nd and 3rd class ticket amounts (and the crew size) were fixed and
+# each category had a specific probability to survive
+Titanic_2 <- margin.table(Titanic, c(1, 4))
+Titanic_2
+
+# Is the probability to survive the same in each category?
+chisq.test(Titanic_2)
+# Strong evidence against H0
+
+
+
+
+##########################
+# X^2 test of independence
+
+# Cross-classification of a sample of British males according to each subject's
+# occupational status and his father's occupational status.
+occupationalStatus
+heatmap(occupationalStatus, Colv = NA, Rowv = NA, revC = TRUE)
+# Think: How would the heat map look
+# if the two variables are independent?
+
+# Are the occupational statuses of a father and his son independent?
+chisq.test(occupationalStatus)
+# Strong evidence against H0
+# (the warning has to do with some cell counts being very low,
+# and the extreme classes could be combined to give a more reliable result)
+
+
+##########################
+# X^2 overfitting example
+
+# Two samples, each representing counts from
+# multinomial with n=1000 and p=(.25,.25,.25,.25).
+p = c(.25, .25, .25, .25)
+
+# First sample, really a random sample.
+X = rmultinom(1, 1000, p)
+X
+
+# Second sample, not random but counts are "set"
+# to almost equal the expected counts
+Y = c(252, 248, 250, 250)
+Y
+
+chisq.test(X, p=p)
+chisq.test(Y, p=p)
+# Second test has statistic very close to zero,
+# and very HIGH p-value. Suspicious? Was the data
+# really random, and by miracle the counts were
+# almost exactly the expected counts?
+

@@ -1,0 +1,334 @@
+###########################
+# MS-C1620
+# Statistical inference
+# Lecture 7
+
+
+# We use the significance level 0.05 throughout the script
+
+
+
+##########################################################
+# Examples of data sets with near linear relationships
+
+
+#####################
+# Iris data
+
+# The sepal lengths and widths for Setosa-irises
+# An almost-linear relationship
+plot(iris[1:50, 1], iris[1:50, 2], xlab = "Sepal length", ylab = "Sepal width")
+
+
+
+
+
+####################
+# Prestige data - linear with outliers
+
+library(car)
+
+data("Prestige")
+Prestige
+help(Prestige)
+
+# What is the relationship between "education" and "income" (in 1971)?
+plot(Prestige$education, Prestige$income, xlab = "Education", ylab = "Income")
+# Mostly linear with some outliers in the top right corner
+
+
+
+
+#####################
+# Alligator data - linearity after a transform
+
+
+# A study in central Florida where 15 alligators were captured.
+# Two measurements were made on each of the alligators:
+# The weight (in pounds),
+# The snout vent length (in inches - this is the distance between the back of the head to the end of the nose).
+# Source: https://www.r-bloggers.com/simple-linear-regression-2/
+alligator = data.frame(
+  Length = exp(c(3.87, 3.61, 4.33, 3.43, 3.81, 3.83, 3.46, 3.76,
+               3.50, 3.58, 4.19, 3.78, 3.71, 3.73, 3.78)),
+  Weight = exp(c(4.87, 3.93, 6.46, 3.33, 4.38, 4.70, 3.50, 4.50,
+               3.58, 3.64, 5.90, 4.43, 4.38, 4.42, 4.25))
+)
+
+# Is the relationship linear?
+plot(alligator$Length, alligator$Weight, xlab = "Length", ylab = "Weight")
+
+# Maybe more so for logarithmic variables
+plot(log(alligator$Length), log(alligator$Weight), xlab = "log(Length)", ylab = "log(Weight)")
+
+
+
+
+
+
+
+
+
+
+
+
+##########################################################
+# Fitting a linear model
+
+
+# We choose the line so that deviations of the points from it are as small a possible
+x <- rnorm(100)
+y <- -1*x + rnorm(100, 0.1)
+plot(x, y)
+
+# A possible best line?
+plot(x, y)
+abline(a = -1, b = -0.5)
+segments(x, y, x, -1 -0.5*x, col="red")
+# Sum of squared deviations
+sum((y - (-1 -0.5*x))^2)
+
+
+# Another candidate?
+plot(x, y)
+abline(a = 1, b = -0.7)
+segments(x, y, x, 1 -0.7*x, col="red")
+# Sum of squared deviations
+sum((y - (1 -0.7*x))^2)
+
+
+# The optimal least squares choice:
+plot(x, y)
+abline(lm(y ~ x))
+segments(x, y, x, fitted(lm(y ~ x)), col="red")
+sum((y - fitted(lm(y ~ x)))^2)
+
+
+
+
+###########
+# Examples
+
+# 1
+x <- rnorm(100)
+y <- x
+plot(x, y)
+abline(lm(y ~ x))
+
+
+# 2
+x <- rnorm(50)
+y <- -1*x + rnorm(50, 0.1)
+plot(x, y)
+abline(lm(y ~ x))
+lm(y ~ x)$coef
+
+# Computing the coefficients also "by hand"
+
+mx <- mean(x)
+my <- mean(y)
+sx <- sd(x)
+sy <- sd(y)
+corxy <- cor(x, y) 
+
+beta_1 <- corxy*sy/sx
+beta_1
+beta_0 <- my - beta_1*mx
+beta_0
+
+# True line in red
+abline(a = 0, b = -1, col = "red")
+
+
+
+
+# 3
+x <- rnorm(100)
+y <- x^2 + x + rnorm(100, 0.1)
+plot(x, y)
+abline(lm(y ~ x))
+
+
+# 4
+phi <- runif(400, 0, 2*pi)
+r <- runif(400, 1, 1.5)
+x <- r*cos(phi)
+y <- r*sin(phi)
+plot(x, y)
+abline(lm(y ~ x))
+
+
+# Iris
+plot(iris[1:50, 1], iris[1:50, 2], xlab = "Sepal length", ylab = "Sepal width")
+abline(lm(iris[1:50, 2] ~ iris[1:50, 1]))
+lm(iris[1:50, 2] ~ iris[1:50, 1])$coef
+# 1cm increase in sepal length increases the sepal width by 0.80cm
+
+
+# Prestige
+plot(Prestige$education, Prestige$income, xlab = "Education", ylab = "Income")
+abline(lm(Prestige$income ~ Prestige$education))
+lm(Prestige$income ~ Prestige$education)$coef
+# 1 point increase in education increases income by ~900$
+
+
+# Alligator
+plot(alligator$Length, alligator$Weight, xlab = "Length", ylab = "Weight")
+abline(lm(alligator$Weight ~ alligator$Length))
+lm(alligator$Weight ~ alligator$Length)$coef
+
+plot(log(alligator$Length), log(alligator$Weight), xlab = "log(Length)", ylab = "log(Weight)")
+abline(lm(log(alligator$Weight) ~ log(alligator$Length)))
+lm(log(alligator$Weight) ~ log(alligator$Length))$coef
+
+
+
+##########################################################
+# Assessing model fit
+
+
+##############################
+# Residuals in iris data
+x <- iris[1:50, 1]
+y <- iris[1:50, 2]
+plot(x, y, xlab = "Sepal length", ylab = "Sepal width")
+lm_iris <- lm(iris[1:50, 2] ~ iris[1:50, 1])
+abline(lm_iris)
+
+res_iris <- signif(residuals(lm_iris), 5)
+pred_iris <- predict(lm_iris) # plot distances between points and the regression line
+segments(x, y, x, pred_iris, col="red")
+
+# add labels (res values) to points
+library(calibrate)
+textxy(x, y, res_iris, cex=0.8)
+
+
+
+
+
+##############################
+# Coefficients of determination for the fits
+
+
+# 1
+x <- rnorm(100)
+y <- x
+plot(x, y)
+abline(lm(y ~ x))
+summary(lm(y ~ x))$r.squared
+
+
+# 2
+x <- rnorm(100)
+y <- -1*x + rnorm(100, 0.1)
+plot(x, y)
+abline(lm(y ~ x))
+summary(lm(y ~ x))$r.squared
+
+
+# 3
+x <- rnorm(100)
+y <- x^2 + x + rnorm(100, 0.1)
+plot(x, y)
+abline(lm(y ~ x))
+summary(lm(y ~ x))$r.squared
+
+
+# 4
+phi <- runif(400, 0, 2*pi)
+r <- runif(400, 1, 1.5)
+x <- r*cos(phi)
+y <- r*sin(phi)
+plot(x, y)
+abline(lm(y ~ x))
+summary(lm(y ~ x))$r.squared
+
+
+# Iris
+plot(iris[1:50, 1], iris[1:50, 2], xlab = "Sepal length", ylab = "Sepal width")
+abline(lm(iris[1:50, 2] ~ iris[1:50, 1]))
+lm(iris[1:50, 2] ~ iris[1:50, 1])$coef
+summary(lm(iris[1:50, 2] ~ iris[1:50, 1]))$r.squared
+
+
+# Prestige
+plot(Prestige$education, Prestige$income, xlab = "Education", ylab = "Income")
+abline(lm(Prestige$income ~ Prestige$education))
+lm(Prestige$income ~ Prestige$education)$coef
+summary(lm(Prestige$income ~ Prestige$education))$r.squared
+
+
+# Alligator
+plot(alligator$Length, alligator$Weight, xlab = "Length", ylab = "Weight")
+abline(lm(alligator$Weight ~ alligator$Length))
+lm(alligator$Weight ~ alligator$Length)$coef
+summary(lm(alligator$Weight ~ alligator$Length))$r.squared
+# Large even though line is not the "correct" choice!
+
+
+plot(log(alligator$Length), log(alligator$Weight), xlab = "log(Length)", ylab = "log(Weight)")
+abline(lm(log(alligator$Weight) ~ log(alligator$Length)))
+lm(log(alligator$Weight) ~ log(alligator$Length))$coef
+summary(lm(log(alligator$Weight) ~ log(alligator$Length)))$r.squared
+
+
+
+
+#########################################################
+# Inference for linear models
+
+
+# Iris
+iris_short <- iris[1:50, 1:2]
+iris_lm <- lm(Sepal.Width ~ Sepal.Length, data = iris_short)
+summary(iris_lm)
+# The final column in the "Coefficients" table tells the p-value of the hypothesis tests of the form
+# H0: beta = 0
+# H1: beta != 0
+
+# Small p-value for Sepal length -> its true value is not zero
+# -> Sepal length has an effect on Sepal length (there is a true relationship between the two)
+
+# Confidence intervals:
+confint(iris_lm)
+
+# How the interval is calculated:
+iris_coef <- summary(iris_lm)$coefficients
+iris_coef["Sepal.Length", "Estimate"] - qt(0.975, 48)*iris_coef["Sepal.Length", "Std. Error"]
+iris_coef["Sepal.Length", "Estimate"] + qt(0.975, 48)*iris_coef["Sepal.Length", "Std. Error"]
+
+
+
+
+# Prestige
+prestige_short <- Prestige[, 1:2]
+prestige_lm <- lm(income ~ education, data = prestige_short)
+summary(prestige_lm)
+# Education and income have a statistically significant relationship between them
+
+# Confidence intervals:
+confint(prestige_lm)
+
+
+
+# Alligator
+alligator_lm <- lm(log(alligator$Weight) ~ log(alligator$Length), data = alligator)
+summary(alligator_lm)
+# Length and weight (their logarithms) have a statistically significant relationship between them
+
+# Confidence intervals:
+confint(alligator_lm)
+
+
+
+# Circle data
+phi <- runif(400, 0, 2*pi)
+r <- runif(400, 1, 1.5)
+x <- r*cos(phi)
+y <- r*sin(phi)
+circle_lm <- lm(y ~ x)
+summary(circle_lm)
+# No *linear* relationship between x and y!
+
+confint(circle_lm)

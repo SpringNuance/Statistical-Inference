@@ -1,0 +1,344 @@
+###########################
+# MS-C1620
+# Statistical inference
+# Lecture 3
+
+
+library(scales)
+library(EnvStats)
+
+
+
+
+# The significance level is always taken to be equal to 0.05 below.
+
+
+
+####################################################################################
+# One-sample sign test
+
+
+faithful
+
+# Claim: the location of the eruption times equal to 3 minutes 35 seconds
+
+
+plot(faithful)
+hist(faithful$eruptions, breaks = 25)
+
+# Is the median of the eruption times equal to 3 minutes 35 seconds?
+# H0: med == 3.583
+# H1: med != 3.583
+
+n <- length(faithful$eruptions)
+
+# Test statistic is the amount of "red" points.
+plot(faithful$eruptions, rep(1, n), col = as.factor(faithful$eruptions > 3.583))
+abline(v = 3.583)
+
+s <- sum(faithful$eruptions > 3.583)
+
+# If H0 is true, we expect around n/2 = 136 obs. to be larger than 3.583
+plot((n/2 - 50):(n/2 + 50), dbinom((n/2 - 50):(n/2 + 50), n, 0.5), type = "b")
+abline(h = 0)
+abline(v = 0.5*n, lwd = 2)
+
+# The corresponding observed amount is 164
+
+# p-value is the probability of the areas outside the green lines
+abline(v = 0.5*n + abs(s - 0.5*n) , col = 3, lwd = 2) # This is what we observe
+abline(v = 0.5*n - abs(s - 0.5*n) , col = 3, lwd = 2)
+
+# The one-sample sign test can be performed through "Exact Binomial Test"
+# Significance level 5%
+binom.test(s, n)
+# Extremely small p-value -> reject H0
+
+
+# The same with normal approximation
+z <- (s - n/2)/sqrt(n/4)
+
+curve(dnorm, from = -5, to = 5)
+abline(v = 0, lwd = 2)
+abline(h = 0)
+
+# p-value is the probability of the areas outside the green lines
+abline(v = -abs(z), col = 3, lwd = 2) # This is what we observe
+abline(v = abs(z), col = 3, lwd = 2)
+
+2*(1 - pnorm(abs(z)))
+# Reject H0
+
+
+
+
+
+
+
+####################################################################################
+# One-sample sign test vs. one-sample t-test
+
+
+# t-test for the same data on significance level 5%
+
+t.test(faithful$eruptions, mu = 3.583)
+
+
+# Why do the conclusions differ even though both tests test whether the "location" is 3.583?
+
+hist(faithful$eruptions, breaks = 25)
+
+
+
+
+
+
+
+
+####################################################################################
+# Power comparison
+
+# We have a sample of size 20 from N(mu, 1)-distribution 
+# H0: mu == 0
+# H1: mu != 0
+
+# Tests: one sample t-test vs. one-sample sign test, both on significance level 5%
+
+# Type I error rates
+
+# We generate data where H0 is true and check whether the test "sees" this
+x <- rnorm(20, 0, sqrt(1))
+x
+
+# The null distribution of the test statistic with the critical points
+t_density <- function(x) dt(x, df = 19)
+curve(t_density, from = -5, to = 5)
+abline(h = 0)
+abline(v = qt(0.025, df = 19), col = 2, lwd = 2)
+abline(v = qt(0.975, df = 19), col = 2, lwd = 2)
+
+# Observed value
+x <- rnorm(20, 0, sqrt(1))
+abline(v = t.test(x)$statistic, lty = 2)
+
+# Repeat multiple times
+replicate(20, abline(v = t.test(rnorm(20, 0, sqrt(1)))$statistic, lty = 2))
+
+
+# Simulated probabilities
+mean(replicate(10000, t.test(rnorm(20, 0, sqrt(1)))$p.value < 0.05))
+mean(replicate(10000, binom.test(sum(rnorm(20, 0, sqrt(1)) > 0), 20)$p.value < 0.05))
+
+
+
+
+# Type II error when the true value is actually mu = 1
+
+# The null distribution
+curve(t_density, from = -4, to = 6)
+abline(h = 0)
+abline(v = qt(0.025, df = 19), col = 2, lwd = 2)
+abline(v = qt(0.975, df = 19), col = 2, lwd = 2)
+
+# Observed value
+x <- rnorm(20, 1, sqrt(1))
+abline(v = t.test(x)$statistic, lty = 2)
+
+# Repeat multiple times
+replicate(20, abline(v = t.test(rnorm(20, 1, sqrt(1)))$statistic, lty = 2))
+
+mean(replicate(10000, t.test(rnorm(20, 1, sqrt(1)))$p.value >= 0.05))
+mean(replicate(10000, binom.test(sum(rnorm(20, 1, sqrt(1)) > 0), 20)$p.value >= 0.05))
+
+# Sign test has larger type II error for normally distributed data!
+
+
+
+
+
+
+####################################################################################
+# Discrete data and the one-sample sign test
+
+# We test whether the population median equals 5 for the following simulated sample
+set.seed(012019)
+x <- sample(0:10, 30, replace = TRUE)
+
+
+# Conservative approach -> we choose the one (> or >=) that gives the larger p-value
+# -> Put the zeroes on the side which "balances" the signs
+
+# The following might differ
+sum(x - 5 > 0)
+sum(x - 5 >= 0)
+# 17 negative, 2 zeroes, 11 positive -> zeroes will go with the positive ones in the cons. approach
+
+
+binom.test(sum(x - 5 > 0), 30)$p.value 
+binom.test(sum(x - 5 >= 0), 30)$p.value # Conservartive choice
+
+
+
+
+
+
+
+
+####################################################################################
+# Paired sign-test
+
+
+# Weight of mice before treatment
+before <-c(200.1, 190.9, 192.7, 213, 241.4, 196.9, 172.2, 185.5, 205.2, 193.7)
+# Weight of mice after treatment
+after <-c(392.9, 393.2, 345.1, 393, 434, 427.9, 422, 383.9, 392.3, 352.2)
+
+
+# Does the treatment affect the weight?
+x <- cbind(before, after)
+matplot(t(x), type = "l")
+abline(v = c(1, 2))
+
+# 
+d <- after - before 
+plot(d, rep (1, 10))
+# Difficult to say whether the difference is normally distributed -> sign test
+
+# H0: med_d == 0, i.e. treatment had no effect
+# H1: med_d != 0, i.e. treatment had an effect
+
+binom.test(sum(d > 0), 10)
+# -> The treatment had an effect
+
+
+
+
+
+
+####################################################################################
+# One-sample signed rank test
+
+# Assumes symmetry
+
+nottem
+
+# Average January Temperatures at Nottingham, 1920-1939
+nottem_jan <- nottem[seq(from = 1, length.out = 20, by = 12)]
+
+
+# Seems to be symmetric
+hist(nottem_jan)
+boxplot(nottem_jan)
+
+# Is the (population) January average equal to 40 degrees Fahrenheit?
+# H0: med == 40
+# H1: med != 40
+# Significance level 5%
+
+n <- length(nottem_jan)
+nottem_r <- rank(abs(nottem_jan - 40))
+nottem_jan
+nottem_r
+
+plot(nottem_jan, rep(1, n))
+abline(v = 40)
+text(nottem_jan, rep(0.9, n), labels = as.character(nottem_r))
+
+
+# One-sample signed rank test
+wilcox.test(nottem_jan, mu = 40)
+# No evidence against the null
+
+
+
+
+
+
+####################################################################################
+# Power comparison continued
+
+# Type II error of one-sample signed rank test in the same situation as before
+
+
+# Null distribution of the one-sample signed rank test statistic for H0: med = 0
+nulls <- replicate(1000, wilcox.test(rnorm(20, 0, sqrt(1)))$statistic)
+hist(nulls, breaks = 30, xlim = c(0, 250))
+abline(v = quantile(nulls, 0.025), lwd = 2, col = 2)
+abline(v = quantile(nulls, 0.975), lwd = 2, col = 2)
+
+# Draw test statistic values for med = 1
+abline(v = replicate(20, wilcox.test(rnorm(20, 1, sqrt(1)))$statistic), lty = 2)
+
+mean(replicate(10000, wilcox.test(rnorm(20, 1, sqrt(1)))$p.value >= 0.05))
+# Better Type II error rate than for sign test because of the used extra information!
+
+
+
+
+####################################################################################
+# Two-sample rank test
+
+# Data which show the effect of two soporific drugs (increase in hours of sleep compared to control) on 10 patients.
+sleep
+
+# Compare whether the drugs differ in their effect at significance level 5%
+# H0: med1 == med2
+# H1: med1 != med2
+
+# Are the distribution same up to shift?
+hist(sleep[sleep$group == 1, 1])
+hist(sleep[sleep$group == 2, 1])
+
+plot(sleep[sleep$group == 1, 1], rep(1, 10), xlim = c(-2, 6), cex = 1.5)
+abline(h = 1.0)
+points(sleep[sleep$group == 2, 1], rep(0.8, 10), col = 2, cex = 1.5)
+abline(h = 0.8, col = 2)
+# Maybe...
+
+
+wilcox.test(sleep[sleep$group == 1, 1], sleep[sleep$group == 2, 1])
+
+# p-value 0.069 - not enough evidence against H0
+
+# Remember that t-test gave a p-value 0.079
+t.test(sleep[sleep$group == 1, 1], sleep[sleep$group == 2, 1])
+
+
+
+
+
+
+####################################################################################
+# Two-sample rank test with ranked data
+
+# The 10 best selling albums of all time with the corresponding nationalities (US, non-US) are:
+# (https://www.pastemagazine.com/articles/2018/08/the-best-selling-albums-of-all-time.html)
+
+# 10. Alanis Morissette: Jagged Little Pill (non-US)
+# 9. Adele: 21 (non-US)
+# 8. AC/DC: Back in Black (non-US)
+# 7. Fleetwood Mac: Rumours (non-US)
+# 6. Whitney Houston (Various Artists): The Bodyguard Soundtrack (US)
+# 5. Led Zeppelin: Led Zeppelin IV (non-US)
+# 4. Shania Twain: Come on Over (non-US)
+# 3. Eagles: Hotel California (US)
+# 2. Eagles: Their Greatest Hits 1971-1975 (US)
+# 1. Michael Jackson: Thriller (US)
+
+# Is US music more popular (in the sense of more albums sold?). Significance level 5%
+# H0: med_US == med_nonUS
+# H1: med_US != med_nonUS
+
+# The medians can be thought to be the medians of album sales in the corresponding regions
+
+
+albums <- data.frame(rank = 1:10,
+                     origin = c("US", "US", "US", "non-US", "non-US",
+                                "US", "non-US", "non-US", "non-US", "non-US"))
+
+albums[albums$origin == "US", ]$rank
+albums[albums$origin == "non-US", ]$rank
+
+wilcox.test(albums[albums$origin == "US", ]$rank, albums[albums$origin == "non-US", ]$rank)
+
+# US albums are more popular (p-value = 0.0381)

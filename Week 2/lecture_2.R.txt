@@ -1,0 +1,231 @@
+###########################
+# MS-C1620
+# Statistical inference
+# Lecture 2
+
+
+library(scales)
+library(EnvStats)
+
+
+
+####################################################################################
+# Comparison of confidence intervals for expected value
+
+# Highly skew data set
+x <- rivers
+n <- length(x)
+boxplot(x)
+
+# Manual bootstrapping for the expected value
+B <- 1000
+res <- rep(0, B)
+
+for(b in 1:B){
+  res[b] <- mean(sample(x, n, replace = TRUE))
+}
+
+# Distribution of the bootstrap means
+hist(res)
+
+# 95% BS confidence interval
+ci_bs <- quantile(res, probs = c(0.025, 0.975))
+abline(v = ci_bs, lwd = 2, col = 2)
+ci_bs
+
+# Parametric 95% confidence interval assuming normality
+ci_ex <- c(mean(x) - 1.96*sd(x)/sqrt(n), mean(x) + 1.96*sd(x)/sqrt(n))
+abline(v = ci_ex, lwd = 2, col = 3)
+ci_ex
+
+
+
+
+
+
+####################################################################################
+# BS confidence interval for skewness
+
+library(moments)
+
+# Manual bootstrapping
+B <- 1000
+res <- rep(0, B)
+
+for(b in 1:B){
+  res[b] <- skewness(sample(x, n, replace = TRUE))
+}
+
+# Distribution of the bootstrap means
+hist(res)
+
+# 95% BS confidence interval
+ci_bs <- quantile(res, probs = c(0.025, 0.975))
+abline(v = ci_bs, lwd = 2, col = 2)
+ci_bs
+
+
+
+
+####################################################################
+# Illustration of Type I and Type II errors using t-test (optional extra example)
+
+# Single run
+
+n <- 15
+
+theta <- 0
+y <- rnorm(n, theta, 3)
+
+# Our test statistic for H0: theta = 0
+t_observed_0 <- (mean(y) - 0)/(sd(y)/sqrt(n))
+t_observed_0
+# Is this too large to happen under H0?
+
+
+
+
+# Find The distribution of t under H0
+
+t_generate <- function(theta){
+  n <- 15
+  y <- rnorm(n, theta, 3)
+  (mean(y) - 0)/(sd(y)/sqrt(n))
+}
+
+theta_0 <- replicate(10000, t_generate(0))
+
+hist(theta_0, breaks = 30)
+
+# We choose cut-off points for what is still considered as "normal behavior" under H0 (95% interval)
+# (note that this is an approximation and we could also use the true distribution, Student's t with n - 1 degrees of freedom)
+quant_0 <- quantile(theta_0, c(0.025, 0.975))
+abline(v = quant_0[1], col = "red", lwd = 2)
+abline(v = quant_0[2], col = "red", lwd = 2)
+# Type I error rate is now roughly 5%
+
+# Where does the observed value fall?
+abline(v = t_observed_0, col = "black", lwd = 2)
+# p-value measures how far away we are in the tail/how weird the observation is.
+mean((theta_0 >= abs(t_observed_0) | theta_0 <= -abs(t_observed_0)))
+
+# Type I error rate is 5% (probability of claiming there is an effect when there is not)
+
+
+
+
+# What about type II errors?
+
+# The distribution of t when H1: theta = 1 is true
+theta_1 <- replicate(10000, t_generate(1))
+
+hist(theta_0, breaks = 30, xlim = c(-5, 7))
+abline(v = quant_0[1], col = "red", lwd = 2)
+abline(v = quant_0[2], col = "red", lwd = 2)
+
+hist(theta_1, breaks = 30, add = TRUE, col = alpha("lightblue", 0.4), lty = 2)
+# Type II error rate for theta = 1
+mean(theta_1 < quant_0[2] & theta_1 > quant_0[1])
+
+# Conduct a single study where H1: theta = 1 is true
+t_observed_1 <- t_generate(1)
+abline(v = t_observed_1, col = "black", lwd = 2)
+# p-value
+mean((theta_0 >= abs(t_observed_1) | theta_0 <= -abs(t_observed_1)))
+
+# Making the "normally behaving" area wider makes true H0 easier to recognize (lower type I)
+# but deviations from H0 more difficult to recognize (higher type II) and vice versa
+
+
+
+# Recognizing deviations from H0 gets more difficult as we approach theta = 0
+theta_01 <- replicate(10000, t_generate(0.1))
+
+hist(theta_0, breaks = 30, xlim = c(-5, 5))
+abline(v = quant_0[1], col = "red", lwd = 2)
+abline(v = quant_0[2], col = "red", lwd = 2)
+hist(theta_01, breaks = 30, add = TRUE, col = alpha("salmon", 0.4), lty = 2)
+# Type II error rate for theta = 1
+mean(theta_01 < quant_0[2] & theta_01 > quant_0[1])
+
+# Conduct a single study where H0 is false
+t_observed_01 <- t_generate(0.1)
+abline(v = t_observed_01, col = "black", lwd = 2)
+# p-value
+mean((theta_0 >= abs(t_observed_01) | theta_0 <= -abs(t_observed_01)))
+
+
+
+
+
+
+
+
+
+####################################################################################
+# One sample t-test
+
+# Data which show the effect of two soporific drugs (increase in hours of sleep compared to control) on 10 patients.
+sleep
+
+# Compare whether the first drugs differs in its effect from placebo at significance level 5%
+# H0: mu1 == 0
+# H1: mu1 != 0
+
+plot(sleep[sleep$group == 1, 1], rep(1, 10))
+t.test(sleep[sleep$group == 1, 1])
+
+# p-value 0.218 - not enough evidence against H0
+
+
+
+
+
+####################################################################################
+# Two-sample t-test
+
+# Data which show the effect of two soporific drugs (increase in hours of sleep compared to control) on 10 patients.
+sleep
+
+# Compare whether the drugs differ in their effect at significance level 5%
+# H0: mu1 == mu2
+# H1: mu1 != mu 2
+
+plot(sleep[sleep$group == 1, 1], rep(1, 10))
+plot(sleep[sleep$group == 2, 1], rep(1, 10))
+t.test(sleep[sleep$group == 1, 1], sleep[sleep$group == 2, 1])
+
+# p-value 0.079 - not enough evidence against H0
+
+
+
+
+####################################################################################
+# Variance test
+
+# This data set provides measurements of the girth, height and volume of timber in 31 felled black cherry trees.
+trees
+
+# We test the conjecture that the standard deviation of the height of the felled trees equals 5
+
+# Test the following hypotheses with the significance level 5%
+# H0: sigma^2 == 5^2 == 25
+# H1: sigma^2 != 25
+
+varTest(trees$Height, sigma.squared = 25)
+
+# p-value 0.034 - H0 not plausible
+
+
+
+
+####################################################################################
+# Variance comparison test
+
+# Compare whether the variance of the drug effect differ in the sleep data at significance level 5%
+# H0: sigma_1^2 == sigma_2^2
+# H1: sigma_1^2 != sigma_2^2
+
+var.test(sleep[sleep$group == 1, 1], sleep[sleep$group == 2, 1])
+
+# p-value 0.743 - no evidence against H0
